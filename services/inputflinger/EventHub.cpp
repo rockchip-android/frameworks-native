@@ -1181,7 +1181,7 @@ status_t EventHub::openDeviceLocked(const char *devicePath) {
             || containsNonZeroByte(device->keyBitmask, sizeof_bit_array(BTN_JOYSTICK),
                     sizeof_bit_array(BTN_DIGI));
     if (haveKeyboardKeys || haveGamepadButtons) {
-        device->classes |= INPUT_DEVICE_CLASS_KEYBOARD;
+        device->classes |= INPUT_DEVICE_CLASS_KEYBOARD | INPUT_DEVICE_CLASS_KEYMOUSE;
     }
 
     // See if this is a cursor device such as a trackball or mouse.

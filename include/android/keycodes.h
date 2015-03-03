@@ -723,6 +723,7 @@ enum {
     AKEYCODE_NAVIGATE_NEXT   = 261,
     AKEYCODE_NAVIGATE_IN     = 262,
     AKEYCODE_NAVIGATE_OUT    = 263,
+    
     /** Primary stem key for Wear
      * Main power/reset button on watch. */
     AKEYCODE_STEM_PRIMARY = 264,
@@ -765,7 +766,13 @@ enum {
     /** fingerprint navigation key, left. */
     AKEYCODE_SYSTEM_NAVIGATION_LEFT = 282,
     /** fingerprint navigation key, right. */
-    AKEYCODE_SYSTEM_NAVIGATION_RIGHT = 283
+    AKEYCODE_SYSTEM_NAVIGATION_RIGHT = 283,
+   
+    AKEYCODE_TV_KEYMOUSE_LEFT = 284,
+    AKEYCODE_TV_KEYMOUSE_RIGHT = 285,
+    AKEYCODE_TV_KEYMOUSE_UP = 286,
+    AKEYCODE_TV_KEYMOUSE_DOWN = 287,
+    AKEYCODE_TV_KEYMOUSE_MODE_SWITCH = 288
 
     // NOTE: If you add a new keycode here you must also add it to several other files.
     //       Refer to frameworks/base/core/java/android/view/KeyEvent.java for the full list.

@@ -55,6 +55,7 @@
 #include <errno.h>
 #include <limits.h>
 #include <math.h>
+#include <cutils/properties.h>
 
 #define INDENT "  "
 #define INDENT2 "    "
@@ -68,6 +69,7 @@ namespace android {
 
 // Maximum number of slots supported when using the slot-based Multitouch Protocol B.
 static const size_t MAX_SLOTS = 32;
+static const int KEYCODE_ENTER = 28;
 
 // Maximum amount of latency to add to touch events while waiting for data from an
 // external stylus.
@@ -492,7 +494,10 @@ InputDevice* InputReader::createDeviceLocked(int32_t deviceId, int32_t controlle
     if (classes & INPUT_DEVICE_CLASS_CURSOR) {
         device->addMapper(new CursorInputMapper(device));
     }
-
+    // Mouser-like devices.
+    if (classes & INPUT_DEVICE_CLASS_KEYMOUSE) {
+        device->addMapper(new KeyMouseInputMapper(device));
+    }
     // Touchscreens and touchpad devices.
     if (classes & INPUT_DEVICE_CLASS_TOUCH_MT) {
         device->addMapper(new MultiTouchInputMapper(device));
@@ -1235,6 +1240,7 @@ void CursorButtonAccumulator::reset(InputDevice* device) {
     mBtnForward = device->isKeyPressed(BTN_FORWARD);
     mBtnExtra = device->isKeyPressed(BTN_EXTRA);
     mBtnTask = device->isKeyPressed(BTN_TASK);
+    mBtnOk = device->isKeyPressed(KEYCODE_ENTER);
 }
 
 void CursorButtonAccumulator::clearButtons() {
@@ -1246,6 +1252,7 @@ void CursorButtonAccumulator::clearButtons() {
     mBtnForward = 0;
     mBtnExtra = 0;
     mBtnTask = 0;
+    mBtnOk = 0;
 }
 
 void CursorButtonAccumulator::process(const RawEvent* rawEvent) {
@@ -1275,12 +1282,18 @@ void CursorButtonAccumulator::process(const RawEvent* rawEvent) {
         case BTN_TASK:
             mBtnTask = rawEvent->value;
             break;
+	case KEYCODE_ENTER:
+	    mBtnOk = rawEvent->value;
+	    break;
         }
     }
 }
 
 uint32_t CursorButtonAccumulator::getButtonState() const {
     uint32_t result = 0;
+    if (mBtnOk) {
+       result |= AMOTION_EVENT_BUTTON_PRIMARY;
+    }
     if (mBtnLeft) {
         result |= AMOTION_EVENT_BUTTON_PRIMARY;
     }
@@ -2253,36 +2266,52 @@ void KeyboardInputMapper::processKey(nsecs_t when, bool down, int32_t scanCode,
         policyFlags = 0;
     }
 
-    if (down) {
-        // Rotate key codes according to orientation if needed.
-        if (mParameters.orientationAware && mParameters.hasAssociatedDisplay) {
-            keyCode = rotateKeyCode(keyCode, mOrientation);
-        }
-
-        // Add key down.
-        ssize_t keyDownIndex = findKeyDown(scanCode);
-        if (keyDownIndex >= 0) {
-            // key repeat, be sure to use same keycode as before in case of rotation
-            keyCode = mKeyDowns.itemAt(keyDownIndex).keyCode;
-        } else {
-            // key down
-            if ((policyFlags & POLICY_FLAG_VIRTUAL)
-                    && mContext->shouldDropVirtualKey(when,
-                            getDevice(), keyCode, scanCode)) {
-                return;
-            }
             if (policyFlags & POLICY_FLAG_GESTURE) {
                 mDevice->cancelTouch(when);
             }
+	char *mKeyMouseState = new char[PROPERTY_VALUE_MAX];
+	property_get("sys.KeyMouse.mKeyMouseState", mKeyMouseState, "off");
+	char *mID = new char[PROPERTY_VALUE_MAX];
+	sprintf(mID,"%d",getDeviceId());
+	property_set("sys.ID.mID",mID);
+
+	if (down) {
+	   if (keyCode == 284) {
+		   if (strcmp(mKeyMouseState, "on")==0) {
+			   property_set("sys.KeyMouse.mKeyMouseState", "off");
+		   } else if (strcmp(mKeyMouseState,"off")==0) {
+			   property_set("sys.KeyMouse.mKeyMouseState","on");
+		   }
+	   }
+           // Rotate key codes according to orientation if needed.
+	   if (mParameters.orientationAware && mParameters.hasAssociatedDisplay) {
+		   keyCode = rotateKeyCode(keyCode, mOrientation);
+	   }
+
+	   // Add key down.
+	   ssize_t keyDownIndex = findKeyDown(scanCode);
+	   if (keyDownIndex >= 0) {
+		   // key repeat, be sure to use same keycode as before in case of rotation
+		   keyCode = mKeyDowns.itemAt(keyDownIndex).keyCode;
+	   } else {
+		   // key down
+		   if ((policyFlags & POLICY_FLAG_VIRTUAL)
+				   && mContext->shouldDropVirtualKey(when,
+					   getDevice(), keyCode, scanCode)) {
+			   return;
+		   }
+           if (policyFlags & POLICY_FLAG_GESTURE) {
+               mDevice->cancelTouch(when);
+           }
 
             mKeyDowns.push();
             KeyDown& keyDown = mKeyDowns.editTop();
             keyDown.keyCode = keyCode;
             keyDown.scanCode = scanCode;
-        }
+	   }
 
-        mDownTime = when;
-    } else {
+	   mDownTime = when;
+	} else {
         // Remove key down.
         ssize_t keyDownIndex = findKeyDown(scanCode);
         if (keyDownIndex >= 0) {
@@ -2323,6 +2352,12 @@ void KeyboardInputMapper::processKey(nsecs_t when, bool down, int32_t scanCode,
 
     if (down && !isMetaKey(keyCode)) {
         getContext()->fadePointer();
+    }
+    //
+    if (strcmp(mKeyMouseState, "on") == 0) {
+	if(keyCode == 21 || keyCode == 22 || keyCode == 19 || keyCode == 20) {
+		keyCode = 1000;
+	}
     }
 
     NotifyKeyArgs args(when, getDeviceId(), mSource, policyFlags,
@@ -2872,6 +2907,157 @@ void RotaryEncoderInputMapper::sync(nsecs_t when) {
     }
 
     mRotaryEncoderScrollAccumulator.finishSync();
+}
+
+KeyMouseInputMapper::KeyMouseInputMapper(InputDevice* device) : InputMapper(device) {
+}
+
+KeyMouseInputMapper::~KeyMouseInputMapper() {
+}
+
+uint32_t KeyMouseInputMapper::getSources() {
+    return AINPUT_SOURCE_MOUSE;
+}
+
+void KeyMouseInputMapper::populateDeviceInfo(InputDeviceInfo* info) {
+    InputMapper::populateDeviceInfo(info);
+}
+
+void KeyMouseInputMapper::dump(String8& dump) {
+
+}
+
+void KeyMouseInputMapper::configure(nsecs_t when,
+        const InputReaderConfiguration* config, uint32_t changes) {
+
+    InputMapper::configure(when, config, changes);
+	mSource=AINPUT_SOURCE_MOUSE;
+}
+
+void KeyMouseInputMapper::reset(nsecs_t when) {
+    mButtonState = 0;
+    mDownTime = 0;
+    mCursorButtonAccumulator.reset(getDevice());
+
+    InputMapper::reset(when);
+}
+
+void KeyMouseInputMapper::process(const RawEvent* rawEvent) {
+        mCursorButtonAccumulator.process(rawEvent);
+
+	int mID;
+	char *mgetDeviceID=new char[PROPERTY_VALUE_MAX];
+	property_get("sys.ID.mID", mgetDeviceID,0);
+	mID=atoi(mgetDeviceID);
+
+	mPointerController = getPolicy()->obtainPointerController(mID);
+
+	if (rawEvent->type == EV_KEY && ((rawEvent->code== 28)||(rawEvent->code== 232))) {
+		mdeltax = 0;
+		mdeltay = 0;
+		sync(rawEvent->when);
+	}
+}
+
+void KeyMouseInputMapper::sync(nsecs_t when) {
+    int32_t lastButtonState = mButtonState;
+    int32_t currentButtonState = mCursorButtonAccumulator.getButtonState();
+    mButtonState = currentButtonState;
+
+    char *mKeyLock=new char[PROPERTY_VALUE_MAX];
+    memset(mKeyLock,0,5);
+    property_get("sys.KeyMouse.mKeyMouseState", mKeyLock, "off");
+
+    bool wasDown = isPointerDown(lastButtonState);
+    bool down = isPointerDown(currentButtonState);
+    bool downChanged;
+    if (!wasDown && down) {
+        mDownTime = when;
+        downChanged = true;
+    } else if (wasDown && !down) {
+        downChanged = true;
+    } else {
+        downChanged = false;
+    }
+    nsecs_t downTime = mDownTime;
+    if(strcmp(mKeyLock, "off") == 0) {
+	return;
+    }
+
+    float deltaX = mdeltax;
+    float deltaY = mdeltay;
+
+    // Move the pointer.
+    PointerProperties pointerProperties;
+    pointerProperties.clear();
+    pointerProperties.id = 0;
+    pointerProperties.toolType = AMOTION_EVENT_TOOL_TYPE_MOUSE;
+
+    PointerCoords pointerCoords;
+    pointerCoords.clear();
+
+    //paint the pointer of mouse here
+    int32_t displayId;
+    if (mPointerController != NULL) {
+	//LOGD("get---mPointerController--sucess!");
+
+        mPointerController->setPresentation(
+                    PointerControllerInterface::PRESENTATION_POINTER);
+
+        mPointerController->move(deltaX,deltaY);
+        mPointerController->unfade(PointerControllerInterface::TRANSITION_IMMEDIATE);
+
+        float x, y;
+        mPointerController->getPosition(&x, &y);
+        pointerCoords.setAxisValue(AMOTION_EVENT_AXIS_X, x);
+        pointerCoords.setAxisValue(AMOTION_EVENT_AXIS_Y, y);
+	displayId = ADISPLAY_ID_DEFAULT;
+    }
+    // Moving an external trackball or mouse should wake the device.
+    // We don't do this for internal cursor devices to prevent them from waking up
+    // the device in your pocket.
+    // TODO: Use the input device configuration to control this behavior more finely.
+
+    uint32_t policyFlags = 0;
+    policyFlags |= POLICY_FLAG_WAKE;
+    mSource = AINPUT_SOURCE_MOUSE;
+    // Synthesize key down from buttons if needed.
+    synthesizeButtonKeys(getContext(), AKEY_EVENT_ACTION_DOWN, when, getDeviceId(), mSource,
+		    policyFlags, lastButtonState, currentButtonState);
+
+    // Send motion event.
+    if (downChanged) {
+        int32_t metaState = mContext->getGlobalMetaState();
+        int32_t motionEventAction;
+        if (downChanged) {
+            motionEventAction = down ? AMOTION_EVENT_ACTION_DOWN : AMOTION_EVENT_ACTION_UP;
+        } else  {
+            motionEventAction = AMOTION_EVENT_ACTION_MOVE;
+        }
+
+        NotifyMotionArgs args(when, getDeviceId(), mSource, 0,
+                motionEventAction, 0, 0, metaState, AMOTION_EVENT_EDGE_FLAG_NONE, 0,
+                displayId, 1, &pointerProperties, &pointerCoords, 1, 1, downTime);
+        getListener()->notifyMotion(&args);
+
+		 /*NotifyMotionArgs args(when, getDeviceId(), mSource, policyFlags,
+                motionEventAction, 0, metaState, currentButtonState, 0,
+                displayId, 1, &pointerProperties, &pointerCoords,
+                mXPrecision, mYPrecision, downTime);*/
+
+    }
+}
+
+int32_t KeyMouseInputMapper::getScanCodeState(uint32_t sourceMask, int32_t scanCode) {
+    if (scanCode >= BTN_MOUSE && scanCode < BTN_JOYSTICK) {
+        return getEventHub()->getScanCodeState(getDeviceId(), scanCode);
+    } else {
+        return AKEY_STATE_UNKNOWN;
+    }
+}
+
+void KeyMouseInputMapper::fadePointer() {
+
 }
 
 // --- TouchInputMapper ---

@@ -130,6 +130,8 @@ enum {
 
     /* The input device has a vibrator (supports FF_RUMBLE). */
     INPUT_DEVICE_CLASS_VIBRATOR      = 0x00000200,
+    /* The input device has a mouse. */
+    INPUT_DEVICE_CLASS_KEYMOUSE      = 0x00000400,
 
     /* The input device has a microphone. */
     INPUT_DEVICE_CLASS_MIC           = 0x00000400,
