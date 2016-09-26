@@ -69,7 +69,6 @@ namespace android {
 
 // Maximum number of slots supported when using the slot-based Multitouch Protocol B.
 static const size_t MAX_SLOTS = 32;
-static const int KEYCODE_ENTER = 28;
 
 // Maximum amount of latency to add to touch events while waiting for data from an
 // external stylus.
@@ -81,6 +80,9 @@ static const nsecs_t TOUCH_DATA_TIMEOUT = ms2ns(20);
 // Artificial latency on synthetic events created from stylus data without corresponding touch
 // data.
 static const nsecs_t STYLUS_DATA_LATENCY = ms2ns(10);
+
+static const int KEYCODE_ENTER = 28;
+static const int KEYCODE_DPAD_CENTER = 232;
 
 // --- Static Functions ---
 
@@ -1241,6 +1243,7 @@ void CursorButtonAccumulator::reset(InputDevice* device) {
     mBtnExtra = device->isKeyPressed(BTN_EXTRA);
     mBtnTask = device->isKeyPressed(BTN_TASK);
     mBtnOk = device->isKeyPressed(KEYCODE_ENTER);
+    mBtnOk = device->isKeyPressed(KEYCODE_DPAD_CENTER);
 }
 
 void CursorButtonAccumulator::clearButtons() {
@@ -1282,9 +1285,10 @@ void CursorButtonAccumulator::process(const RawEvent* rawEvent) {
         case BTN_TASK:
             mBtnTask = rawEvent->value;
             break;
-	case KEYCODE_ENTER:
-	    mBtnOk = rawEvent->value;
-	    break;
+        case KEYCODE_ENTER:
+        case KEYCODE_DPAD_CENTER:
+            mBtnOk = rawEvent->value;
+            break;
         }
     }
 }
@@ -2355,9 +2359,15 @@ void KeyboardInputMapper::processKey(nsecs_t when, bool down, int32_t scanCode,
     }
     //
     if (strcmp(mKeyMouseState, "on") == 0) {
-	if(keyCode == 21 || keyCode == 22 || keyCode == 19 || keyCode == 20) {
-		keyCode = 1000;
-	}
+        if(keyCode == 21) {
+            keyCode = 280;
+        } else if (keyCode == 22) {
+            keyCode = 281;
+        } else if (keyCode == 19) {
+            keyCode = 282;
+        } else if (keyCode == 20) {
+            keyCode = 283;
+        }
     }
 
     NotifyKeyArgs args(when, getDeviceId(), mSource, policyFlags,
@@ -2943,7 +2953,8 @@ void KeyMouseInputMapper::reset(nsecs_t when) {
 }
 
 void KeyMouseInputMapper::process(const RawEvent* rawEvent) {
-        mCursorButtonAccumulator.process(rawEvent);
+
+	mCursorButtonAccumulator.process(rawEvent);
 
 	int mID;
 	char *mgetDeviceID=new char[PROPERTY_VALUE_MAX];
@@ -2981,7 +2992,7 @@ void KeyMouseInputMapper::sync(nsecs_t when) {
     }
     nsecs_t downTime = mDownTime;
     if(strcmp(mKeyLock, "off") == 0) {
-	return;
+        return;
     }
 
     float deltaX = mdeltax;
