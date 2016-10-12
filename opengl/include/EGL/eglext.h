@@ -292,6 +292,19 @@ typedef EGLImageKHR (EGLAPIENTRYP PFNEGLCREATEDRMIMAGEMESAPROC) (EGLDisplay dpy,
 typedef EGLBoolean (EGLAPIENTRYP PFNEGLEXPORTDRMIMAGEMESAPROC) (EGLDisplay dpy, EGLImageKHR image, EGLint *name, EGLint *handle, EGLint *stride);
 #endif
 
+//rk add
+#ifndef EGL_ANDROID_get_render_buffer
+#define EGL_ANDROID_get_render_buffer 1
+#ifdef EGL_EGLEXT_PROTOTYPES
+EGLAPI EGLClientBuffer EGLAPIENTRY eglGetRenderBufferANDROID(EGLDisplay dpy, EGLSurface draw);
+EGLAPI EGLBoolean EGLAPIENTRY eglRenderBufferModifiedANDROID(EGLDisplay dpy, EGLSurface draw);
+#endif
+typedef EGLClientBuffer (EGLAPIENTRYP PFNEGLGETRENDERBUFFERANDROIDPROC) (EGLDisplay dpy, EGLSurface draw);
+typedef EGLBoolean (EGLAPIENTRYP PFNEGLRENDERBUFFERMODIFYEDANDROIDPROC) (EGLDisplay dpy, EGLSurface draw);
+#endif
+EGLAPI void EGLAPIENTRY eglSetImplementationAndroid(EGLBoolean impl);
+typedef void (EGLAPIENTRYP PFNEGLSETIMPLEMENTATIONANDROIDPROC) (EGLBoolean impl);
+
 #ifndef EGL_NV_post_sub_buffer
 #define EGL_NV_post_sub_buffer 1
 #define EGL_POST_SUB_BUFFER_SUPPORTED_NV	0x30BE
