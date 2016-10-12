@@ -32,7 +32,9 @@
 #include <utils/Timers.h>
 #include <utils/Vector.h>
 
-#define RK_COMP_TYPE    (1)
+#define RK_COMP_TYPE            (1)
+#define RK_WAIT_HDMI_OUT        (1)
+#define RK_DRM_HDMI             (1)
 
 extern "C" int clock_nanosleep(clockid_t clock_id, int flags,
                            const struct timespec *request,

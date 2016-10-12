@@ -138,7 +138,11 @@ HWComposer::HWComposer(
             mCBContext->hwc = this;
             mCBContext->procs.invalidate = &hook_invalidate;
             mCBContext->procs.vsync = &hook_vsync;
-            if (hwcHasApiVersion(mHwc, HWC_DEVICE_API_VERSION_1_1))
+            if (hwcHasApiVersion(mHwc, HWC_DEVICE_API_VERSION_1_1)
+#if RK_DRM_HDMI
+                || hwcHasApiVersion(mHwc, HWC_DEVICE_API_VERSION_1_4)
+#endif
+            )
                 mCBContext->procs.hotplug = &hook_hotplug;
             else
                 mCBContext->procs.hotplug = NULL;
@@ -153,7 +157,11 @@ HWComposer::HWComposer(
 
         // the number of displays we actually have depends on the
         // hw composer version
-        if (hwcHasApiVersion(mHwc, HWC_DEVICE_API_VERSION_1_3)) {
+        if (hwcHasApiVersion(mHwc, HWC_DEVICE_API_VERSION_1_3)
+#if RK_DRM_HDMI
+            || hwcHasApiVersion(mHwc, HWC_DEVICE_API_VERSION_1_4)
+#endif
+            ) {
             // 1.3 adds support for virtual displays
             mNumDisplays = MAX_HWC_DISPLAYS;
         } else if (hwcHasApiVersion(mHwc, HWC_DEVICE_API_VERSION_1_1)) {
@@ -369,6 +377,24 @@ status_t HWComposer::queryDisplayProperties(int disp) {
     }
 
     mDisplayData[disp].currentConfig = 0;
+
+#if RK_WAIT_HDMI_OUT
+    int count = 0;
+    while(1 == disp && mDisplayData[disp].configs.size()){
+        usleep(5000);
+        count ++;
+        if(200==count){
+            /*Of course,this cannot be happened:1s*/
+            ALOGW("hotplug remove device,wait timeout");
+            property_set("sys.hwc.htg","false");
+            return NO_INIT;
+        }
+    }
+    if(1 == disp){
+        property_set("sys.hwc.htg","true");
+    }
+#endif
+
     for (size_t c = 0; c < numConfigs; ++c) {
         err = mHwc->getDisplayAttributes(mHwc, disp, configs[c],
                 DISPLAY_ATTRIBUTES, values);
