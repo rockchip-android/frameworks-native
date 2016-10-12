@@ -57,6 +57,9 @@
 #include "DisplayHardware/HWComposer.h"
 #include "Effects/Daltonizer.h"
 
+
+#define RK_FPS          (1)
+
 namespace android {
 
 // ---------------------------------------------------------------------------
@@ -130,6 +133,10 @@ public:
     // is received
     // TODO: this should be made accessible only to MessageQueue
     void onMessageReceived(int32_t what);
+#if RK_FPS
+    //add by rk for fps
+    void debugShowFPS() const;
+#endif
 
     // for debugging only
     // TODO: this should be made accessible only to HWComposer
@@ -516,6 +523,10 @@ private:
 
     Daltonizer mDaltonizer;
     bool mDaltonize;
+#if RK_FPS
+    //add by rk for fps
+    int mDebugFPS;
+#endif
 
     mat4 mColorMatrix;
     bool mHasColorMatrix;

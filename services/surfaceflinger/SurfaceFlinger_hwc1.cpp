@@ -180,6 +180,12 @@ SurfaceFlinger::SurfaceFlinger()
             mDebugDDMS = 0;
         }
     }
+
+#if RK_FPS
+    property_get("debug.sf.fps", value, "0");
+    mDebugFPS = atoi(value);
+#endif
+
     ALOGI_IF(mDebugRegion, "showupdates enabled");
     ALOGI_IF(mDebugDDMS, "DDMS debugging enabled");
 }
@@ -551,6 +557,26 @@ size_t SurfaceFlinger::getMaxViewportDims() const {
 }
 
 // ----------------------------------------------------------------------------
+
+#if RK_FPS
+void SurfaceFlinger::debugShowFPS() const
+{
+    static int mFrameCount;
+    static int mLastFrameCount = 0;
+    static nsecs_t mLastFpsTime = 0;
+    static float mFps = 0;
+
+    mFrameCount++;
+    nsecs_t now = systemTime();
+    nsecs_t diff = now - mLastFpsTime;
+    if (diff > ms2ns(500)) {
+        mFps =  ((mFrameCount - mLastFrameCount) * float(s2ns(1))) / diff;
+        mLastFpsTime = now;
+        mLastFrameCount = mFrameCount;
+        ALOGD("mFps = %2.3f", mFps);
+    }
+}
+#endif
 
 bool SurfaceFlinger::authenticateSurfaceTexture(
         const sp<IGraphicBufferProducer>& bufferProducer) const {
@@ -940,6 +966,10 @@ bool SurfaceFlinger::handleMessageInvalidate() {
     return handlePageFlip();
 }
 
+#if RK_FPS
+static int gsFrameCcount = 0;
+#endif
+
 void SurfaceFlinger::handleMessageRefresh() {
     ATRACE_CALL();
 
@@ -972,6 +1002,15 @@ void SurfaceFlinger::handleMessageRefresh() {
     }
 
     previousExpectedPresent = mPrimaryDispSync.computeNextRefresh(0);
+
+#if RK_FPS
+    if(gsFrameCcount++%300==0) {
+        gsFrameCcount = 1;
+        char value[PROPERTY_VALUE_MAX];
+        property_get("debug.sf.fps", value, "0");
+        mDebugFPS = atoi(value);
+    }
+#endif
 }
 
 void SurfaceFlinger::doDebugFlashRegions()
@@ -1287,6 +1326,11 @@ void SurfaceFlinger::postFramebuffer()
         }
         hwc.commit();
     }
+
+#if RK_FPS
+    if (mDebugFPS > 0)
+        debugShowFPS();
+#endif
 
     // make the default display current because the VirtualDisplayDevice code cannot
     // deal with dequeueBuffer() being called outside of the composition loop; however

@@ -32,6 +32,8 @@
 #include <utils/Timers.h>
 #include <utils/Vector.h>
 
+#define RK_COMP_TYPE    (1)
+
 extern "C" int clock_nanosleep(clockid_t clock_id, int flags,
                            const struct timespec *request,
                            struct timespec *remain);
