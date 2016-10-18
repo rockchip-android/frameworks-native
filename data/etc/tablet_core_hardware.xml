@@ -58,6 +58,7 @@
     <!-- devices with a front facing camera must include
          android.hardware.camera.front.xml -->
     <!-- devices with WiFi must also include android.hardware.wifi.xml -->
+    <feature name="android.hardware.wifi" />
     <!-- devices with an ambient light sensor must also include
          android.hardware.sensor.light.xml -->
     <!-- devices with a proximity sensor must also include
