@@ -59,6 +59,8 @@
 
 
 #define RK_FPS          (1)
+#define RK_WFD_OPT      (1)
+#define RK_CTS_GTS      (1)
 
 namespace android {
 
@@ -511,6 +513,10 @@ private:
     bool mBootFinished;
     bool mForceFullDamage;
     FenceTracker mFenceTracker;
+
+#if RK_WFD_OPT
+    int mWfdOptimize;
+#endif
 
     // these are thread safe
     mutable MessageQueue mEventQueue;

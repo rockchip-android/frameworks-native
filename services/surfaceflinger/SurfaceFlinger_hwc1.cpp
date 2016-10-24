@@ -185,13 +185,21 @@ SurfaceFlinger::SurfaceFlinger()
     }
 
 #if RK_FPS
+    memset(value,0,PROPERTY_VALUE_MAX);
     property_get("debug.sf.fps", value, "0");
     mDebugFPS = atoi(value);
 #endif
 
 #if RK_HW_ROTATION
+    memset(value,0,PROPERTY_VALUE_MAX);
     property_get("ro.sf.hwrotation", value, "0");
     mHardwareOrientation = atoi(value) / 90;
+#endif
+
+#if RK_WFD_OPT
+    memset(value,0,PROPERTY_VALUE_MAX);
+    property_get("sys.enable.wfd.optimize", value, "0");
+    mWfdOptimize = atoi(value);
 #endif
 
     ALOGI_IF(mDebugRegion, "showupdates enabled");
@@ -1481,6 +1489,18 @@ void SurfaceFlinger::handleTransactionLocked(uint32_t transactionFlags)
             for (size_t i=0 ; i<dc ; i++) {
                 const ssize_t j = curr.indexOfKey(draw.keyAt(i));
                 if (j < 0) {
+#if RK_CTS_GTS
+                    if (draw[i].type == HWC_DISPLAY_VIRTUAL)
+                    {
+                        char value[PROPERTY_VALUE_MAX];
+                        property_get("sys.cts_gts.status", value, "0");
+                        int IsCTS =  !strcmp(value,"true");
+                        if(IsCTS)
+                        {
+                            property_set("sys.hwc.compose_policy", "6");
+                        }
+                    }
+#endif
                     // in drawing state but not in current state
                     if (!draw[i].isMainDisplay()) {
                         // Call makeCurrent() on the primary display so we can
@@ -1555,6 +1575,15 @@ void SurfaceFlinger::handleTransactionLocked(uint32_t transactionFlags)
                         // Virtual displays without a surface are dormant:
                         // they have external state (layer stack, projection,
                         // etc.) but no internal state (i.e. a DisplayDevice).
+#if RK_CTS_GTS
+                        char value[PROPERTY_VALUE_MAX];
+                        property_get("sys.cts_gts.status", value, "0");
+                        int IsCTS =  !strcmp(value,"true");
+                        if(IsCTS)
+                        {
+                            property_set("sys.hwc.compose_policy", "0");
+                        }
+#endif
                         if (state.surface != NULL) {
 
                             int width = 0;
@@ -2116,6 +2145,14 @@ bool SurfaceFlinger::doComposeSurfaces(const sp<const DisplayDevice>& hw, const 
     const Vector< sp<Layer> >& layers(hw->getVisibleLayersSortedByZ());
     const size_t count = layers.size();
     const Transform& tr = hw->getTransform();
+#if RK_WFD_OPT
+    bool wfdOptimize = mWfdOptimize && (hw->getDisplayType()==DisplayDevice::DISPLAY_VIRTUAL);
+    if (wfdOptimize)
+    {
+      engine.clearWithColor(0, 0, 0, 0);
+    }
+#endif
+
     if (cur != end) {
         // we're using h/w composer
         for (size_t i=0 ; i<count && cur!=end ; ++i, ++cur) {
@@ -2137,7 +2174,10 @@ bool SurfaceFlinger::doComposeSurfaces(const sp<const DisplayDevice>& hw, const 
                         break;
                     }
                     case HWC_FRAMEBUFFER: {
-                        layer->draw(hw, clip);
+#if RK_WFD_OPT
+                        if (!wfdOptimize)
+#endif
+                            layer->draw(hw, clip);
                         break;
                     }
                     case HWC_FRAMEBUFFER_TARGET: {
@@ -2157,7 +2197,10 @@ bool SurfaceFlinger::doComposeSurfaces(const sp<const DisplayDevice>& hw, const 
             const Region clip(dirty.intersect(
                     tr.transform(layer->visibleRegion)));
             if (!clip.isEmpty()) {
-                layer->draw(hw, clip);
+#if RK_WFD_OPT
+                if (!wfdOptimize)
+#endif
+                    layer->draw(hw, clip);
             }
         }
     }
