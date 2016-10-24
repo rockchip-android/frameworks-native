@@ -81,7 +81,11 @@ DisplayDevice::DisplayDevice(
         const wp<IBinder>& displayToken,
         const sp<DisplaySurface>& displaySurface,
         const sp<IGraphicBufferProducer>& producer,
-        EGLConfig config)
+        EGLConfig config
+#if RK_HW_ROTATION
+        ,int hardwareOrientation
+#endif
+        )
     : lastCompositionHadVisibleLayers(false),
       mFlinger(flinger),
       mType(type),
@@ -100,6 +104,9 @@ DisplayDevice::DisplayDevice(
       mIsSecure(isSecure),
       mLayerStack(NO_LAYER_STACK),
       mOrientation(),
+#if RK_HW_ROTATION
+      mHardwareOrientation(hardwareOrientation),
+#endif
       mPowerMode(HWC_POWER_MODE_OFF),
       mActiveConfig(0)
 {
@@ -143,6 +150,16 @@ DisplayDevice::DisplayDevice(
     mPageFlipCount = 0;
     mViewport.makeInvalid();
     mFrame.makeInvalid();
+
+#if RK_HW_ROTATION
+    if (mFlinger->orientationSwap()) {
+        mViewport.set(Rect(mDisplayHeight, mDisplayWidth));
+        mFrame.set(Rect(mDisplayHeight, mDisplayWidth));
+    } else {
+        mViewport.set(bounds());
+        mFrame.set(bounds());
+    }
+#endif
 
     // virtual displays are always considered enabled
     mPowerMode = (mType >= DisplayDevice::DISPLAY_VIRTUAL) ?
@@ -492,6 +509,88 @@ void DisplayDevice::setProjection(int orientation,
     Rect viewport(newViewport);
     Rect frame(newFrame);
 
+#if RK_FORCE_SCALE_FULLSCREEN
+    ALOGV("name =%s",getDisplayName().string());
+    ALOGV(" viewport [%d %d]",mViewport.getWidth(),mViewport.getHeight());
+    ALOGV(" frame [%d %d]", frame.getWidth(),frame.getHeight());
+    ALOGV(" hw [%d %d]", getWidth(),getHeight());
+
+    bool isVirtualScreen = mType == DisplayDevice::DISPLAY_VIRTUAL;
+    if (isVirtualScreen && frame.getWidth() > frame.getHeight()) {
+        frame = Rect(0,0,getWidth(),getHeight());
+        ALOGV("update frame [%d,%d]",frame.getWidth(),frame.getHeight());
+    }
+#endif
+
+#if RK_HW_ROTATION
+    bool isHdmiScreen = mType == DisplayDevice::DISPLAY_EXTERNAL;
+    if (isHdmiScreen) {
+        int eInitOrientation = 0;
+        bool isSfHwrotated = false;
+        bool isSupportRotation = false;
+        bool isPrimaryExternalSameOrientation = false;
+        Rect newFrame = Rect(0,0,getWidth(),getHeight());
+        Rect newFrameRotated = Rect(0,0,getHeight(),getWidth());
+        float frameRatio = (float)frame.getWidth() / frame.getHeight();
+        char value[PROPERTY_VALUE_MAX];
+
+        property_get("ro.sf.hwrotation", value, "0");
+        isSfHwrotated = atoi(value) != 0;
+        property_get("ro.same.orientation", value, "false");
+        isPrimaryExternalSameOrientation = !strcmp(value,"true");
+        if(!isSfHwrotated) {
+            property_get("ro.orientation.einit", value, "0");
+            eInitOrientation = atoi(value) / 90;
+            property_get("ro.rotation.external", value, "false");
+            isSupportRotation = !strcmp(value,"true");
+        }
+        if (isSupportRotation && !isPrimaryExternalSameOrientation) {
+            mClientOrientation = orientation;
+            if (eInitOrientation % 2 == 1) {
+                frame = frameRatio > 1.0 ? frame : newFrameRotated;
+                ALOGI("%d,[%d,%d]",__LINE__,frame.getWidth(),frame.getHeight());
+            } else {
+                frame = frameRatio > 1.0 ? newFrame : frame;
+                ALOGI("%d,[%d,%d]",__LINE__,frame.getWidth(),frame.getHeight());
+            }
+        } else if (isSupportRotation) {
+            mClientOrientation = orientation;
+            if (eInitOrientation % 2 == 1) {
+                //frame = frameRatio > 1.0 ? frame : frame;
+                ALOGI("%d,[%d,%d]",__LINE__,frame.getWidth(),frame.getHeight());
+            } else {
+                frame = frameRatio > 1.0 ? newFrame : newFrameRotated;
+                ALOGI("%d,[%d,%d]",__LINE__,frame.getWidth(),frame.getHeight());
+            }
+        } else if (eInitOrientation % 2 != 0) {
+            if (isPrimaryExternalSameOrientation) {
+                //frame = frameRatio > 1.0 ? frame : frame;
+                ALOGI("%d,[%d,%d]",__LINE__,frame.getWidth(),frame.getHeight());
+            } else {
+                frame = frameRatio > 1.0 ? frame : newFrameRotated;
+                ALOGI("%d,[%d,%d]",__LINE__,frame.getWidth(),frame.getHeight());
+            }
+        } else if (eInitOrientation % 2 == 0) {
+            if (isPrimaryExternalSameOrientation) {
+                frame = frameRatio > 1.0 ? newFrame : frame;
+                ALOGI("%d,[%d,%d]",__LINE__,frame.getWidth(),frame.getHeight());
+            } else {
+                frame = frameRatio > 1.0 ? newFrame : frame;
+                ALOGI("%d,[%d,%d]",__LINE__,frame.getWidth(),frame.getHeight());
+            }
+        } else {
+            frame = frameRatio > 1.0 ? newFrame : frame;
+            ALOGI("%d,[%d,%d]",__LINE__,frame.getWidth(),frame.getHeight());
+        }
+        ALOGV("update frame [%d,%d]",frame.getWidth(),frame.getHeight());
+    }
+
+    if (mType == DisplayDevice::DISPLAY_PRIMARY) {
+        mClientOrientation = orientation;
+        orientation = (mHardwareOrientation + orientation) % 4;
+    }
+#endif
+
     const int w = mDisplayWidth;
     const int h = mDisplayHeight;
 
@@ -542,6 +641,14 @@ void DisplayDevice::setProjection(int orientation,
     // physical translation and finally rotate to the physical orientation.
     mGlobalTransform = R * TP * S * TL;
 
+#if RK_HW_ROTATION
+    Transform realR;
+    if (DisplayDevice::orientationToTransfrom(
+            mClientOrientation, w, h, &realR) == NO_ERROR) {
+        mRealGlobalTransform = realR * TP * S * TL;
+    }
+#endif
+
     const uint8_t type = mGlobalTransform.getType();
     mNeedsFiltering = (!mGlobalTransform.preserveRects() ||
             (type >= Transform::SCALE));
@@ -580,15 +687,29 @@ uint32_t DisplayDevice::getPrimaryDisplayOrientationTransform() {
 
 void DisplayDevice::dump(String8& result) const {
     const Transform& tr(mGlobalTransform);
+#if RK_HW_ROTATION
+    const Transform& realTR(mRealGlobalTransform);
+#endif
     result.appendFormat(
         "+ DisplayDevice: %s\n"
-        "   type=%x, hwcId=%d, layerStack=%u, (%4dx%4d), ANativeWindow=%p, orient=%2d (type=%08x), "
+#if RK_HW_ROTATION
+        "   type=%x, hwcId=%d, layerStack=%u, (%4dx%4d), ANativeWindow=%p, orient=%2d clienOrient=%2d (type=%08x) , "
+#else
+        "   type=%x, hwcId=%d, layerStack=%u, (%4dx%4d), ANativeWindow=%p, orient=%2d (type=%08x) , "
+#endif
         "flips=%u, isSecure=%d, powerMode=%d, activeConfig=%d, numLayers=%zu\n"
         "   v:[%d,%d,%d,%d], f:[%d,%d,%d,%d], s:[%d,%d,%d,%d],"
-        "transform:[[%0.3f,%0.3f,%0.3f][%0.3f,%0.3f,%0.3f][%0.3f,%0.3f,%0.3f]]\n",
-        mDisplayName.string(), mType, mHwcDisplayId,
+        "transform:[[%0.3f,%0.3f,%0.3f][%0.3f,%0.3f,%0.3f][%0.3f,%0.3f,%0.3f]]\n"
+#if RK_HW_ROTATION
+        "   real transform:[[%0.3f,%0.3f,%0.3f][%0.3f,%0.3f,%0.3f][%0.3f,%0.3f,%0.3f]]\n"
+#endif
+        , mDisplayName.string(), mType, mHwcDisplayId,
         mLayerStack, mDisplayWidth, mDisplayHeight, mNativeWindow.get(),
+#if RK_HW_ROTATION
+        mOrientation, mClientOrientation, tr.getType(), getPageFlipCount(),
+#else
         mOrientation, tr.getType(), getPageFlipCount(),
+#endif
         mIsSecure, mPowerMode, mActiveConfig,
         mVisibleLayersSortedByZ.size(),
         mViewport.left, mViewport.top, mViewport.right, mViewport.bottom,
@@ -596,7 +717,13 @@ void DisplayDevice::dump(String8& result) const {
         mScissor.left, mScissor.top, mScissor.right, mScissor.bottom,
         tr[0][0], tr[1][0], tr[2][0],
         tr[0][1], tr[1][1], tr[2][1],
-        tr[0][2], tr[1][2], tr[2][2]);
+        tr[0][2], tr[1][2], tr[2][2]
+#if RK_HW_ROTATION
+        ,realTR[0][0], realTR[1][0], realTR[2][0],
+        realTR[0][1], realTR[1][1], realTR[2][1],
+        realTR[0][2], realTR[1][2], realTR[2][2]
+#endif
+        );
 
     String8 surfaceDump;
     mDisplaySurface->dumpAsString(surfaceDump);

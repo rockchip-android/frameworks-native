@@ -3365,7 +3365,13 @@ void SurfaceFlinger::renderScreenImplLocked(
             if (state.z >= minLayerZ && state.z <= maxLayerZ) {
                 if (layer->isVisible()) {
                     if (filtering) layer->setFiltering(true);
+#if RK_DRAW_SCREENSHOT
+                    layer->setDrawingScreenshot(true);
+#endif
                     layer->draw(hw, useIdentityTransform);
+#if RK_DRAW_SCREENSHOT
+                    layer->setDrawingScreenshot(false);
+#endif
                     if (filtering) layer->setFiltering(false);
                 }
             }

@@ -175,7 +175,10 @@ public:
             bool useIdentityTransform) const;
     Rect computeBounds(const Region& activeTransparentRegion) const;
     Rect computeBounds() const;
-
+#if RK_HW_ROTATION
+    void setDrawingScreenshot(bool drawScreenshot) { mDrawingScreenshot = drawScreenshot; };
+    void computeHWGeometry(Transform& tr, const Transform& layerTransform, const sp<const DisplayDevice>& hw) const;
+#endif
     class Handle;
     sp<IBinder> getHandle();
     sp<IGraphicBufferProducer> getProducer() const;
@@ -594,6 +597,9 @@ private:
     Vector<BufferItem> mQueueItems;
     std::atomic<uint64_t> mLastFrameNumberReceived;
     bool mUpdateTexImageFailed; // This is only modified from the main thread
+#if RK_HW_ROTATION
+    bool mDrawingScreenshot;
+#endif
 
     bool mAutoRefresh;
     bool mFreezePositionUpdates;

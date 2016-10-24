@@ -128,6 +128,9 @@ const String16 sDump("android.permission.DUMP");
 
 SurfaceFlinger::SurfaceFlinger()
     :   BnSurfaceComposer(),
+#if RK_HW_ROTATION
+        mHardwareOrientation(0),
+#endif
         mTransactionFlags(0),
         mTransactionPending(false),
         mAnimTransactionPending(false),
@@ -184,6 +187,11 @@ SurfaceFlinger::SurfaceFlinger()
 #if RK_FPS
     property_get("debug.sf.fps", value, "0");
     mDebugFPS = atoi(value);
+#endif
+
+#if RK_HW_ROTATION
+    property_get("ro.sf.hwrotation", value, "0");
+    mHardwareOrientation = atoi(value) / 90;
 #endif
 
     ALOGI_IF(mDebugRegion, "showupdates enabled");
@@ -503,7 +511,11 @@ void SurfaceFlinger::init() {
             sp<DisplayDevice> hw = new DisplayDevice(this,
                     type, hwcId, mHwc->getFormat(hwcId), isSecure, token,
                     fbs, producer,
-                    mRenderEngine->getEGLConfig());
+                    mRenderEngine->getEGLConfig()
+#if RK_HW_ROTATION
+                    , mHardwareOrientation
+#endif
+                    );
             if (i > DisplayDevice::DISPLAY_PRIMARY) {
                 // FIXME: currently we don't get blank/unblank requests
                 // for displays other than the main display, so we always
@@ -606,6 +618,14 @@ status_t SurfaceFlinger::getDisplayConfigs(const sp<IBinder>& display,
         return type;
     }
 
+#if RK_HW_ROTATION
+    const HWComposer& hwc(getHwComposer());
+    float xdpi = 0.0;
+    float ydpi = 0.0;
+    xdpi = hwc.getDpiX(type);
+    ydpi = hwc.getDpiY(type);
+#endif
+
     // TODO: Not sure if display density should handled by SF any longer
     class Density {
         static int getDensityFromProperty(char const* propName) {
@@ -634,6 +654,11 @@ status_t SurfaceFlinger::getDisplayConfigs(const sp<IBinder>& display,
         float xdpi = hwConfig.xdpi;
         float ydpi = hwConfig.ydpi;
 
+#if RK_HW_ROTATION
+        info.w = hwConfig.width;
+        info.h = hwConfig.height;
+#endif
+
         if (type == DisplayDevice::DISPLAY_PRIMARY) {
             // The density of the device is provided by a build property
             float density = Density::getBuildDensity() / 160.0f;
@@ -653,6 +678,16 @@ status_t SurfaceFlinger::getDisplayConfigs(const sp<IBinder>& display,
             // TODO: this needs to go away (currently needed only by webkit)
             sp<const DisplayDevice> hw(getDefaultDisplayDevice());
             info.orientation = hw->getOrientation();
+
+#if RK_HW_ROTATION
+            if (orientationSwap())
+            {
+                xdpi = hwc.getDpiY(type);
+                ydpi = hwc.getDpiX(type);
+                info.w = hwc.getHeight(type);
+                info.h = hwc.getWidth(type);
+            }
+#endif
         } else {
             // TODO: where should this value come from?
             static const int TV_DENSITY = 213;
@@ -660,8 +695,10 @@ status_t SurfaceFlinger::getDisplayConfigs(const sp<IBinder>& display,
             info.orientation = 0;
         }
 
+#if !RK_HW_ROTATION
         info.w = hwConfig.width;
         info.h = hwConfig.height;
+#endif
         info.xdpi = xdpi;
         info.ydpi = ydpi;
         info.fps = float(1e9 / hwConfig.refresh);
@@ -1562,7 +1599,11 @@ void SurfaceFlinger::handleTransactionLocked(uint32_t transactionFlags)
                                 state.type, hwcDisplayId,
                                 mHwc->getFormat(hwcDisplayId), state.isSecure,
                                 display, dispSurface, producer,
-                                mRenderEngine->getEGLConfig());
+                                mRenderEngine->getEGLConfig()
+#if RK_HW_ROTATION
+                                , mHardwareOrientation
+#endif
+                                );
                         hw->setLayerStack(state.layerStack);
                         hw->setProjection(state.orientation,
                                 state.viewport, state.frame);
@@ -3390,8 +3431,18 @@ void SurfaceFlinger::renderScreenImplLocked(
     RenderEngine& engine(getRenderEngine());
 
     // get screen geometry
+#if RK_HW_ROTATION
+    int32_t hw_w = hw->getWidth();
+    int32_t hw_h = hw->getHeight();
+    if (orientationSwap()) {
+        hw_w = hw->getHeight();
+        hw_h = hw->getWidth();
+    }
+#else
     const int32_t hw_w = hw->getWidth();
     const int32_t hw_h = hw->getHeight();
+#endif
+
     const bool filtering = static_cast<int32_t>(reqWidth) != hw_w ||
                            static_cast<int32_t>(reqHeight) != hw_h;
 
@@ -3467,14 +3518,34 @@ status_t SurfaceFlinger::captureScreenImplLocked(
         std::swap(hw_w, hw_h);
     }
 
-    if ((reqWidth > hw_w) || (reqHeight > hw_h)) {
-        ALOGE("size mismatch (%d, %d) > (%d, %d)",
-                reqWidth, reqHeight, hw_w, hw_h);
-        return BAD_VALUE;
-    }
+#if RK_HW_ROTATION
+    if (orientationSwap()) {
+        if (reqWidth == 0 && reqHeight == 0) {
+            reqWidth = hw_h;
+            reqHeight = hw_w;
+        } else {
+            if ((reqWidth > hw_h) || (reqHeight > hw_w)) {
+                ALOGE("size mismatch (%d, %d) > (%d, %d)",
+                        reqWidth, reqHeight, hw_w, hw_h);
+                return BAD_VALUE;
+            }
 
-    reqWidth  = (!reqWidth)  ? hw_w : reqWidth;
-    reqHeight = (!reqHeight) ? hw_h : reqHeight;
+            reqWidth  = (!reqWidth)  ? hw_h : reqWidth;
+            reqHeight = (!reqHeight) ? hw_w : reqHeight;
+        }
+    } else {
+#endif
+        if ((reqWidth > hw_w) || (reqHeight > hw_h)) {
+            ALOGE("size mismatch (%d, %d) > (%d, %d)",
+                    reqWidth, reqHeight, hw_w, hw_h);
+            return BAD_VALUE;
+        }
+
+        reqWidth  = (!reqWidth)  ? hw_w : reqWidth;
+        reqHeight = (!reqHeight) ? hw_h : reqHeight;
+#if RK_HW_ROTATION
+    }
+#endif
 
     bool secureLayerIsVisible = false;
     const LayerVector& layers(mDrawingState.layersSortedByZ);
