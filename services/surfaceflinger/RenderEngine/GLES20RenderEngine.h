@@ -28,6 +28,10 @@
 #include "ProgramCache.h"
 #include "Description.h"
 
+#if RK_SUPPORT
+#define RK_USE_BLEND_SEPARATE   (1)
+#endif
+
 // ---------------------------------------------------------------------------
 namespace android {
 // ---------------------------------------------------------------------------

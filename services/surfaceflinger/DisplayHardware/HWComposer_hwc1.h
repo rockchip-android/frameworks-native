@@ -32,9 +32,13 @@
 #include <utils/Timers.h>
 #include <utils/Vector.h>
 
+#if RK_SUPPORT
 #define RK_COMP_TYPE            (1)
 #define RK_WAIT_HDMI_OUT        (1)
 #define RK_DRM_HDMI             (1)
+#define RK_LAYER_NAME           (1)
+#define RK_USE_BLEND_SEPARATE   (1)
+#endif
 
 extern "C" int clock_nanosleep(clockid_t clock_id, int flags,
                            const struct timespec *request,
@@ -120,7 +124,11 @@ public:
 
     // does this display have layers handled by GLES
     bool hasGlesComposition(int32_t id) const;
-
+#if RK_COMP_TYPE
+    // rk: does this display have layers handled by Blit (rga)
+    bool hasBlitComposition(int32_t id) const;
+    bool hasLcdComposition(int32_t id) const;
+#endif
     // get the releaseFence file descriptor for a display's framebuffer layer.
     // the release fence is only valid after commit()
     sp<Fence> getAndResetReleaseFence(int32_t id);
@@ -178,6 +186,9 @@ public:
         virtual void setAcquireFenceFd(int fenceFd) = 0;
         virtual void setPlaneAlpha(uint8_t alpha) = 0;
         virtual void onDisplayed() = 0;
+#if RK_LAYER_NAME
+        virtual void setLayername( const char *layername) = 0;
+#endif
     };
 
     /*
@@ -338,6 +349,10 @@ private:
         bool connected;
         bool hasFbComp;
         bool hasOvComp;
+#if RK_COMP_TYPE
+        bool hasBlitComp;
+        bool haslcdComp;
+#endif
         size_t capacity;
         hwc_display_contents_1* list;
         hwc_layer_1* framebufferTarget;

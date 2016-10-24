@@ -137,7 +137,23 @@ void GLES20RenderEngine::setupLayerBlending(
     if (alpha < 0xFF || !opaque) {
 #endif
         glEnable(GL_BLEND);
+#ifdef USE_HWC2
         glBlendFunc(premultipliedAlpha ? GL_ONE : GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+#else
+    #if RK_USE_BLEND_SEPARATE
+/*
+    come from:
+    commit 0d07097700683bb1c4b34fd6ea000fc0a4bf233d
+    Author: huangds <hds@rock-chips.com>
+    Date:   Sun Jan 4 11:31:07 2015 +0800
+
+        modify for hwc new policy
+
+        Signed-off-by: wzq <wzq@rock-chips.com>
+*/
+       glBlendFuncSeparate(premultipliedAlpha ? GL_ONE : GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+    #endif
+#endif
     } else {
         glDisable(GL_BLEND);
     }

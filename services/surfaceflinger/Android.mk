@@ -46,6 +46,41 @@ LOCAL_CFLAGS := -DLOG_TAG=\"SurfaceFlinger\"
 LOCAL_CFLAGS += -DGL_GLEXT_PROTOTYPES -DEGL_EGLEXT_PROTOTYPES
 #LOCAL_CFLAGS += -DENABLE_FENCE_TRACKING
 
+########## For rockchip support. ##########
+RK_SUPPORT := 1
+LOCAL_CFLAGS += -DRK_SUPPORT=$(RK_SUPPORT)
+ifeq ($(RK_SUPPORT),1)
+ifeq ($(strip $(TARGET_BOARD_PLATFORM)),rk3288)
+        LOCAL_CFLAGS += -DSF_RK3288
+endif
+ifeq ($(strip $(TARGET_BOARD_PLATFORM)),rk3368)
+        LOCAL_CFLAGS += -DSF_RK3368
+endif
+ifeq ($(strip $(TARGET_BOARD_PLATFORM)),rk3366)
+        LOCAL_CFLAGS += -DSF_RK3366
+endif
+ifeq ($(strip $(TARGET_BOARD_PLATFORM)),rk3399)
+        LOCAL_CFLAGS +=  -DSF_RK3399 -DRK_USE_DRM
+endif
+ifeq ($(strip $(TARGET_BOARD_PLATFORM)),rk322x)
+        LOCAL_CFLAGS +=  -DSF_RK322X
+endif
+
+ifeq ($(strip $(TARGET_BOARD_PLATFORM)),sofia3gr)
+LOCAL_CFLAGS += -DUSE_X86
+endif
+
+ifeq ($(strip $(TARGET_BOARD_PLATFORM)),rk30xxb)
+    LOCAL_CFLAGS += -DTARGET_BOARD_PLATFORM_RK30XXB
+endif
+
+ifeq ($(strip $(TARGET_BOARD_PLATFORM_GPU)),G6110)
+        LOCAL_CFLAGS += -DGPU_G6110
+endif
+
+endif
+########## End of RK_SUPPORT ##########
+
 USE_HWC2 := false
 ifeq ($(USE_HWC2),true)
     LOCAL_CFLAGS += -DUSE_HWC2

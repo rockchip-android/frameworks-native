@@ -769,6 +769,19 @@ bool HWComposer::hasGlesComposition(int32_t id) const {
     return mDisplayData[id].hasFbComp;
 }
 
+#if RK_COMP_TYPE
+bool HWComposer::hasBlitComposition(int32_t id) const {
+    if (!mHwc || uint32_t(id)>31 || !mAllocatedDisplayIDs.hasBit(id))
+        return true;
+    return mDisplayData[id].hasBlitComp;
+}
+bool HWComposer::hasLcdComposition(int32_t id) const {
+    if (uint32_t(id)>31 || !mAllocatedDisplayIDs.hasBit(id))
+        return false;
+    return mDisplayData[id].haslcdComp;
+}
+#endif
+
 sp<Fence> HWComposer::getAndResetReleaseFence(int32_t id) {
     if (uint32_t(id)>31 || !mAllocatedDisplayIDs.hasBit(id))
         return Fence::NO_FENCE;
@@ -1053,6 +1066,13 @@ public:
     virtual void setCrop(const FloatRect& crop) {
         if (hwcHasApiVersion(mHwc, HWC_DEVICE_API_VERSION_1_3)) {
             getLayer()->sourceCropf = reinterpret_cast<hwc_frect_t const&>(crop);
+#ifndef RK_USE_DRM
+            hwc_rect_t& r = getLayer()->sourceCrop;
+            r.left  = int(ceilf(crop.left));
+            r.top   = int(ceilf(crop.top));
+            r.right = int(floorf(crop.right));
+            r.bottom= int(floorf(crop.bottom));
+#endif
         } else {
             /*
              * Since h/w composer didn't support a flot crop rect before version 1.3,
@@ -1114,7 +1134,15 @@ public:
     virtual void onDisplayed() {
         getLayer()->acquireFenceFd = -1;
     }
-
+#if RK_LAYER_NAME
+    virtual void setLayername(const char *layername) {
+        int strlens ;
+        strlens = strlen(layername);
+        strlens = strlens > LayerNameLength ? LayerNameLength:strlens;
+        memcpy(getLayer()->LayerName,layername,strlens);
+        getLayer()->LayerName[strlens] = 0;
+    }
+#endif
 protected:
     // Pointers to the vectors of Region backing-memory held in DisplayData.
     // Only the Region at mIndex corresponds to this Layer.
@@ -1358,6 +1386,9 @@ HWComposer::DisplayData::DisplayData()
     format(HAL_PIXEL_FORMAT_RGBA_8888),
     connected(false),
     hasFbComp(false), hasOvComp(false),
+#if RK_COMP_TYPE
+    hasBlitComp(false), haslcdComp(false),
+#endif
     capacity(0), list(NULL),
     framebufferTarget(NULL), fbTargetHandle(0),
     lastRetireFence(Fence::NO_FENCE), lastDisplayFence(Fence::NO_FENCE),
