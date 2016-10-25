@@ -1023,6 +1023,14 @@ public:
             }
         }
     }
+#if RK_STEREO
+    virtual void setAlreadyStereo(int32_t alreadyStereo) {
+        getLayer()->alreadyStereo = alreadyStereo;
+    }
+    virtual int32_t getDisplayStereo() const {
+        return getLayer()->displayStereo;
+    }
+#endif
     virtual void setDefaultState() {
         hwc_layer_1_t* const l = getLayer();
         l->compositionType = HWC_FRAMEBUFFER;
@@ -1063,6 +1071,11 @@ public:
     virtual void setFrame(const Rect& frame) {
         getLayer()->displayFrame = reinterpret_cast<hwc_rect_t const&>(frame);
     }
+#if RK_VR
+    virtual void getFrame(Rect& frame) {
+        frame = reinterpret_cast<Rect const&>(getLayer()->displayFrame);
+    }
+#endif
     virtual void setCrop(const FloatRect& crop) {
         if (hwcHasApiVersion(mHwc, HWC_DEVICE_API_VERSION_1_3)) {
             getLayer()->sourceCropf = reinterpret_cast<hwc_frect_t const&>(crop);

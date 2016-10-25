@@ -83,6 +83,14 @@ LOCAL_SHARED_LIBRARIES := \
 	libutils \
 	liblog
 
+########## For rockchip support. ##########
+RK_SUPPORT := 1
+LOCAL_CFLAGS += -DRK_SUPPORT=$(RK_SUPPORT)
+ifeq ($(RK_SUPPORT),1)
+RK_STEREO := 1
+LOCAL_CFLAGS += -DRK_STEREO=$(RK_STEREO)
+endif
+########## End of RK_SUPPORT ##########
 
 LOCAL_MODULE := libgui
 

@@ -85,6 +85,10 @@ public:
     // See IGraphicBufferConsumer::setDefaultBufferDataSpace
     status_t setDefaultBufferDataSpace(android_dataspace defaultDataSpace);
 
+#if RK_STEREO
+    int32_t getAlreadyStereo();
+#endif
+
     // See IGraphicBufferConsumer::discardFreeBuffers
     status_t discardFreeBuffers();
 
@@ -247,6 +251,10 @@ protected:
     //
     // This mutex is intended to be locked by derived classes.
     mutable Mutex mMutex;
+
+#if RK_STEREO
+    int32_t mAlreadyStereo;
+#endif
 };
 
 // ----------------------------------------------------------------------------

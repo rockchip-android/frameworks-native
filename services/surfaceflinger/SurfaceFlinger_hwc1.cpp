@@ -1210,9 +1210,15 @@ void SurfaceFlinger::rebuildLayerStacks() {
                         Region drawRegion(tr.transform(
                                 layer->visibleNonTransparentRegion));
                         drawRegion.andSelf(bounds);
+#if RK_VR
+                        if (!drawRegion.isEmpty() && !strstr(layer->getName().string(),"Sprite")) {
+                            layersSortedByZ.add(layer);
+                        }
+#else
                         if (!drawRegion.isEmpty()) {
                             layersSortedByZ.add(layer);
                         }
+#endif
                     }
                 }
             }
@@ -1281,6 +1287,75 @@ void SurfaceFlinger::setUpHWComposer() {
             }
         }
 
+#if RK_VR
+        // vr : detect whether contain FBR layer
+        bool hasFBRLayer = false;
+        for (size_t dpy=0 ; dpy<mDisplays.size() ; dpy++) {
+            sp<const DisplayDevice> hw(mDisplays[dpy]);
+            const int32_t id = hw->getHwcDisplayId();
+            if (id >= 0) {
+                const Vector< sp<Layer> >& currentLayers(
+                    hw->getVisibleLayersSortedByZ());
+                const size_t count = currentLayers.size();
+                HWComposer::LayerListIterator cur = hwc.begin(id);
+                const HWComposer::LayerListIterator end = hwc.end(id);
+                for (size_t i=0 ; cur!=end && i<count ; ++i, ++cur) {
+                    const sp<Layer>& layer(currentLayers[i]);
+                    if(layer->isFBRLayer()){
+                        hasFBRLayer = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // if no FBR, whether has layer that is not _FORCE_TO_DUAL_
+        bool hasNoForceDualUI = false;
+        if(!hasFBRLayer){
+            for (size_t dpy=0 ; dpy<mDisplays.size() ; dpy++) {
+                sp<const DisplayDevice> hw(mDisplays[dpy]);
+                const int32_t id = hw->getHwcDisplayId();
+                if (id >= 0) {
+                    const Vector< sp<Layer> >& currentLayers(
+                        hw->getVisibleLayersSortedByZ());
+                    const size_t count = currentLayers.size();
+                    HWComposer::LayerListIterator cur = hwc.begin(id);
+                    const HWComposer::LayerListIterator end = hwc.end(id);
+                    for (size_t i=0 ; cur!=end && i<count ; ++i, ++cur) {
+                        const sp<Layer>& layer(currentLayers[i]);
+                        if(strstr(layer->getName().string(),"_Force_To_Dual") == NULL){
+                            hasNoForceDualUI = true;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        // whether has _FORCE_TO_DUAL_
+        bool hasForceDualUI = false;
+        if(!hasFBRLayer){
+            for (size_t dpy=0 ; dpy<mDisplays.size() ; dpy++) {
+                sp<const DisplayDevice> hw(mDisplays[dpy]);
+                const int32_t id = hw->getHwcDisplayId();
+                if (id >= 0) {
+                    const Vector< sp<Layer> >& currentLayers(
+                        hw->getVisibleLayersSortedByZ());
+                    const size_t count = currentLayers.size();
+                    HWComposer::LayerListIterator cur = hwc.begin(id);
+                    const HWComposer::LayerListIterator end = hwc.end(id);
+                    for (size_t i=0 ; cur!=end && i<count ; ++i, ++cur) {
+                        const sp<Layer>& layer(currentLayers[i]);
+                        if(strstr(layer->getName().string(),"_Force_To_Dual") != NULL){
+                            hasForceDualUI = true;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+#endif
+
         // set the per-frame data
         for (size_t dpy=0 ; dpy<mDisplays.size() ; dpy++) {
             sp<const DisplayDevice> hw(mDisplays[dpy]);
@@ -1298,6 +1373,53 @@ void SurfaceFlinger::setUpHWComposer() {
                      */
                     const sp<Layer>& layer(currentLayers[i]);
                     layer->setPerFrameData(hw, *cur);
+#if RK_VR
+                    // vr : setAlreadyStereo
+                    int already3d = 0;
+                    if(hw->getWidth() > hw->getHeight())
+                        already3d = 1;
+                    else
+                        already3d = 2;
+
+                    // property switch
+                    char value[PROPERTY_VALUE_MAX];
+                    property_get("sys.vr.stereo", value, "0");
+                    int enableStereo = atoi(value);
+
+                    if(hasFBRLayer) {
+                        if(strstr(layer->getName().string(),"_Force_To_Dual") != NULL) {
+                            layer->setAlreadyStereo(*cur, 0); // hwc do stereo
+                        } else if(layer->isFBRLayer()) {
+                            layer->setAlreadyStereo(*cur, already3d); // hwc not do stereo
+                        } else {
+                            // not _Force_To_Dual, not FBR   eg: Google Sample k1 k2
+                            if(enableStereo==1)
+                                layer->setAlreadyStereo(*cur, 0); // hwc do stereo
+                            else if(enableStereo==0)
+                                layer->setAlreadyStereo(*cur, already3d); // hwc do stereo
+                            }
+                    }else{
+                        if(enableStereo==1) {
+                            layer->setAlreadyStereo(*cur, 0x8000 | already3d); // hwc do stereo
+                        } else if(enableStereo==0) {
+                            if(hasForceDualUI && !hasNoForceDualUI) {// all layers are _Force_To_Dual layer
+                                layer->setAlreadyStereo(*cur, 0x8000 | already3d); // hwc do stereo
+                            }
+
+                            if(hasForceDualUI && hasNoForceDualUI) {
+                                if(strstr(layer->getName().string(),"_Force_To_Dual") != NULL) {
+                                    layer->setAlreadyStereo(*cur, 0x8000 | already3d); // hwc do stereo
+                                } else {
+                                    layer->setAlreadyStereo(*cur, already3d); // hwc not do stereo
+                                }
+                            }
+
+                            if(!hasForceDualUI && hasNoForceDualUI) {
+                                layer->setAlreadyStereo(*cur, 0); // hwc not do stereo
+                            }
+                        }
+                    }
+#endif
                 }
             }
         }
@@ -1328,6 +1450,21 @@ void SurfaceFlinger::setUpHWComposer() {
         for (size_t dpy=0 ; dpy<mDisplays.size() ; dpy++) {
             sp<const DisplayDevice> hw(mDisplays[dpy]);
             hw->prepareFrame(hwc);
+
+#if RK_STEREO
+            const int32_t id = hw->getHwcDisplayId();
+            if (id >= 0) {
+                const Vector< sp<Layer> >& currentLayers(
+                    hw->getVisibleLayersSortedByZ());
+                const size_t count = currentLayers.size();
+                HWComposer::LayerListIterator cur = hwc.begin(id);
+                const HWComposer::LayerListIterator end = hwc.end(id);
+                for (size_t i=0 ; cur!=end && i<count ; ++i, ++cur) {
+                    const sp<Layer>& layer(currentLayers[i]);
+                    layer->setDisplayStereo(hw, *cur);
+                }
+            }
+#endif
         }
     }
 }

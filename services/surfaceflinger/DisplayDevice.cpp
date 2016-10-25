@@ -522,7 +522,7 @@ void DisplayDevice::setProjection(int orientation,
     }
 #endif
 
-#if RK_HW_ROTATION
+#if !RK_VR & RK_HW_ROTATION
     bool isHdmiScreen = mType == DisplayDevice::DISPLAY_EXTERNAL;
     if (isHdmiScreen) {
         int eInitOrientation = 0;

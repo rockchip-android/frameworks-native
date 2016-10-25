@@ -179,6 +179,9 @@ public:
         virtual void setBlending(uint32_t blending) = 0;
         virtual void setTransform(uint32_t transform) = 0;
         virtual void setFrame(const Rect& frame) = 0;
+#if RK_VR
+	virtual void getFrame(Rect& frame) = 0;
+#endif
         virtual void setCrop(const FloatRect& crop) = 0;
         virtual void setVisibleRegionScreen(const Region& reg) = 0;
         virtual void setSurfaceDamage(const Region& reg) = 0;
@@ -189,6 +192,10 @@ public:
         virtual void onDisplayed() = 0;
 #if RK_LAYER_NAME
         virtual void setLayername( const char *layername) = 0;
+#endif
+#if RK_STEREO
+        virtual void setAlreadyStereo(int32_t alreadyStereo) = 0;
+        virtual int32_t getDisplayStereo() const = 0;
 #endif
     };
 

@@ -282,9 +282,19 @@ status_t ConsumerBase::acquireBufferLocked(BufferItem *item,
 
     CB_LOGV("acquireBufferLocked: -> slot=%d/%" PRIu64,
             item->mSlot, item->mFrameNumber);
+#if RK_STEREO
+    mAlreadyStereo = (item->mScalingMode & 0x300) >> 8;
+    item->mScalingMode = item->mScalingMode & 0xFFFFFCFF;
+#endif
 
     return OK;
 }
+
+#if RK_STEREO
+int32_t ConsumerBase::getAlreadyStereo() {
+    return mAlreadyStereo;
+}
+#endif
 
 status_t ConsumerBase::addReleaseFence(int slot,
         const sp<GraphicBuffer> graphicBuffer, const sp<Fence>& fence) {
