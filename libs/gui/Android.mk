@@ -89,6 +89,11 @@ LOCAL_CFLAGS += -DRK_SUPPORT=$(RK_SUPPORT)
 ifeq ($(RK_SUPPORT),1)
 RK_STEREO := 1
 LOCAL_CFLAGS += -DRK_STEREO=$(RK_STEREO)
+
+ifeq ($(strip $(TARGET_BOARD_PLATFORM_PRODUCT)),vr)
+LOCAL_CFLAGS += -DRK_VR=1
+endif
+
 endif
 ########## End of RK_SUPPORT ##########
 

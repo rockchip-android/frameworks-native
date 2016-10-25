@@ -865,7 +865,22 @@ int Surface::setUsage(uint32_t reqUsage)
     if (reqUsage != mReqUsage) {
         mSharedBufferSlot = BufferItem::INVALID_BUFFER_SLOT;
     }
-    mReqUsage = reqUsage;
+#if RK_VR
+    if(reqUsage == 0x08000000)
+    {
+        mReqUsage |= 0x08000000;
+    }
+    else if(mReqUsage & 0x08000000)
+    {
+        mReqUsage = reqUsage;
+        mReqUsage |= 0x08000000;
+    }
+    else
+#else
+    {
+        mReqUsage = reqUsage;
+    }
+#endif
     return OK;
 }
 

@@ -100,7 +100,7 @@ public:
             const sp<DisplaySurface>& displaySurface,
             const sp<IGraphicBufferProducer>& producer,
             EGLConfig config
-#if RK_HW_ROTATION
+#if !RK_VR & RK_HW_ROTATION
             ,int hardwareOrientation
 #endif
             );
@@ -258,7 +258,9 @@ private:
     int mOrientation;
 #if RK_HW_ROTATION
     int mClientOrientation;
+#if !RK_VR
     int mHardwareOrientation;
+#endif
 #endif
     static uint32_t sPrimaryDisplayOrientation;
     // user-provided visible area of the layer stack
