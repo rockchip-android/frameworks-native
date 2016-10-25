@@ -55,8 +55,14 @@ RK_STEREO := 1
 LOCAL_CFLAGS += -DRK_STEREO=$(RK_STEREO)
 
 ifeq ($(strip $(TARGET_BOARD_PLATFORM_PRODUCT)),vr)
-LOCAL_CFLAGS += -DRK_VR=1
+RK_VR := 1
+else
+RK_VR := 0
 endif
+LOCAL_CFLAGS += -DRK_VR=$(RK_VR)
+
+#by default
+RK_USE_DRM := 0
 
 ifeq ($(strip $(TARGET_BOARD_PLATFORM)),rk3288)
         LOCAL_CFLAGS += -DSF_RK3288
@@ -68,7 +74,8 @@ ifeq ($(strip $(TARGET_BOARD_PLATFORM)),rk3366)
         LOCAL_CFLAGS += -DSF_RK3366
 endif
 ifeq ($(strip $(TARGET_BOARD_PLATFORM)),rk3399)
-        LOCAL_CFLAGS +=  -DSF_RK3399 -DRK_USE_DRM
+        RK_USE_DRM = 1
+        LOCAL_CFLAGS +=  -DSF_RK3399
 endif
 ifeq ($(strip $(TARGET_BOARD_PLATFORM)),rk322x)
         LOCAL_CFLAGS +=  -DSF_RK322X
@@ -85,6 +92,8 @@ endif
 ifeq ($(strip $(TARGET_BOARD_PLATFORM_GPU)),G6110)
         LOCAL_CFLAGS += -DGPU_G6110
 endif
+
+LOCAL_CFLAGS += -DRK_USE_DRM=$(RK_USE_DRM)
 
 endif
 ########## End of RK_SUPPORT ##########

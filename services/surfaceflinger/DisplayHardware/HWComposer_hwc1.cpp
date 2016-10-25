@@ -733,9 +733,13 @@ status_t HWComposer::prepare() {
                     //ALOGD("prepare: %d, type=%d, handle=%p",
                     //        i, l.compositionType, l.handle);
 
+#if RK_USE_DRM
                     if (l.flags & HWC_SKIP_LAYER) {
+
                         l.compositionType = HWC_FRAMEBUFFER;
+
                     }
+#endif
                     if (l.compositionType == HWC_FRAMEBUFFER) {
                         disp.hasFbComp = true;
                     }
@@ -1079,7 +1083,7 @@ public:
     virtual void setCrop(const FloatRect& crop) {
         if (hwcHasApiVersion(mHwc, HWC_DEVICE_API_VERSION_1_3)) {
             getLayer()->sourceCropf = reinterpret_cast<hwc_frect_t const&>(crop);
-#ifndef RK_USE_DRM
+#if !RK_USE_DRM
             hwc_rect_t& r = getLayer()->sourceCrop;
             r.left  = int(ceilf(crop.left));
             r.top   = int(ceilf(crop.top));

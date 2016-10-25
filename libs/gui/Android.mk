@@ -91,8 +91,12 @@ RK_STEREO := 1
 LOCAL_CFLAGS += -DRK_STEREO=$(RK_STEREO)
 
 ifeq ($(strip $(TARGET_BOARD_PLATFORM_PRODUCT)),vr)
-LOCAL_CFLAGS += -DRK_VR=1
+RK_VR := 1
+else
+RK_VR := 0
 endif
+
+LOCAL_CFLAGS += -DRK_VR=$(RK_VR)
 
 endif
 ########## End of RK_SUPPORT ##########
