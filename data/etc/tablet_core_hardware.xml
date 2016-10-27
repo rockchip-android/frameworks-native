@@ -29,6 +29,8 @@
     <feature name="android.hardware.sensor.compass" />
     <feature name="android.hardware.sensor.accelerometer" />
     <feature name="android.hardware.bluetooth" />
+    <feature name="android.hardware.bluetooth_le" />
+    <feature name="android.hardware.ethernet" />
     <feature name="android.hardware.touchscreen" />
     <feature name="android.hardware.touchscreen.multitouch" />
     <feature name="android.hardware.touchscreen.multitouch.distinct" />
@@ -59,6 +61,7 @@
          android.hardware.camera.front.xml -->
     <!-- devices with WiFi must also include android.hardware.wifi.xml -->
     <feature name="android.hardware.wifi" />
+    <feature name="android.hardware.wifi.direct" />
     <!-- devices with an ambient light sensor must also include
          android.hardware.sensor.light.xml -->
     <!-- devices with a proximity sensor must also include
