@@ -89,6 +89,10 @@ public:
     int32_t getAlreadyStereo();
 #endif
 
+    // See IGraphicBufferConsumer::getOccupancyHistory
+    status_t getOccupancyHistory(bool forceFlush,
+            std::vector<OccupancyTracker::Segment>* outHistory);
+
     // See IGraphicBufferConsumer::discardFreeBuffers
     status_t discardFreeBuffers();
 

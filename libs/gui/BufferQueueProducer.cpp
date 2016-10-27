@@ -51,19 +51,9 @@ BufferQueueProducer::BufferQueueProducer(const sp<BufferQueueCore>& core) :
     mNextCallbackTicket(0),
     mCurrentCallbackTicket(0),
     mCallbackCondition(),
-    mDequeueTimeout(-1) {
-#if RK_VR
-        FbrgraphicBuffer  = NULL;
-        bufferchanged = 0;
-        test_cnt = 0;
-#endif
-    }
+    mDequeueTimeout(-1) {}
 
-BufferQueueProducer::~BufferQueueProducer() {
-#if RK_VR
-    FbrgraphicBuffer = NULL;
-#endif
-}
+BufferQueueProducer::~BufferQueueProducer() {}
 
 status_t BufferQueueProducer::requestBuffer(int slot, sp<GraphicBuffer>* buf) {
     ATRACE_CALL();
@@ -467,24 +457,6 @@ status_t BufferQueueProducer::dequeueBuffer(int *outSlot,
             mCore->mIsAllocating = true;
 
             returnFlags |= BUFFER_NEEDS_REALLOCATION;
-#if RK_VR
-            if (usage & 0x08000000)
-            {
-                //int32_t fmt =  (int32_t)format;
-                if ( (buffer != NULL) && (
-                    (static_cast<uint32_t>(buffer->width) != width) ||
-                    (static_cast<uint32_t>(buffer->height) != height) ||
-                    (static_cast<PixelFormat>(buffer->format) != format)/*||
-                    ((static_cast<uint32_t>(buffer->usage) & usage) != usage)*/)
-                  )  // if buffer attribute chaged ,that FBR invalid
-                {
-
-                    FbrgraphicBuffer = NULL;
-                    bufferchanged = 1;
-                    BQ_LOGW("buffer changed force FbrgraphicBuffer = NULL ");
-                }
-            }
-#endif
         } else {
             // We add 1 because that will be the frame number when this buffer
             // is queued
@@ -522,67 +494,37 @@ status_t BufferQueueProducer::dequeueBuffer(int *outSlot,
 
     if (returnFlags & BUFFER_NEEDS_REALLOCATION) {
         status_t error;
-#if RK_VR
-      //  BQ_LOGD("dequeueBuffer: allocating a new buffer for slot %d,usage=%x,maxBufferCount=%d", *outSlot,usage,maxBufferCount);
-        if(!bufferchanged && (usage & 0x08000000))
-        {
-            if(FbrgraphicBuffer == NULL)
-            {
+        BQ_LOGV("dequeueBuffer: allocating a new buffer for slot %d", *outSlot);
+        sp<GraphicBuffer> graphicBuffer(mCore->mAllocator->createGraphicBuffer(
+                width, height, format, usage,
+                {mConsumerName.string(), mConsumerName.size()}, &error));
+        { // Autolock scope
+            Mutex::Autolock lock(mCore->mMutex);
 
-                sp<GraphicBuffer> graphicBuffer(mCore->mAllocator->createGraphicBuffer(
-                            width, height, format, usage, &error));
-                if (graphicBuffer == NULL) {
-                    BQ_LOGE("dequeueBuffer: createGraphicBuffer failed");
-                    return error;
-                }
-
-                BQ_LOGD("graphicBuffer and set fbrbuffer,FbrgraphicBuffer");
-                FbrgraphicBuffer = graphicBuffer;
+            if (graphicBuffer != NULL && !mCore->mIsAbandoned) {
+                graphicBuffer->setGenerationNumber(mCore->mGenerationNumber);
+                mSlots[*outSlot].mGraphicBuffer = graphicBuffer;
             }
-            { // Autolock scope
-                Mutex::Autolock lock(mCore->mMutex);
 
-                if (mCore->mIsAbandoned) {
-                    BQ_LOGE("dequeueBuffer: BufferQueue has been abandoned");
-                    return NO_INIT;
-                }
+            mCore->mIsAllocating = false;
+            mCore->mIsAllocatingCondition.broadcast();
 
-                FbrgraphicBuffer->setGenerationNumber(mCore->mGenerationNumber);
-                mSlots[*outSlot].mGraphicBuffer = FbrgraphicBuffer;//graphicBuffer;
-            } // Autolock scope
+            if (graphicBuffer == NULL) {
+                mCore->mFreeSlots.insert(*outSlot);
+                mCore->clearBufferSlotLocked(*outSlot);
+                BQ_LOGE("dequeueBuffer: createGraphicBuffer failed");
+                return error;
+            }
 
-        }
-        else
-#else
-        {
-            BQ_LOGV("dequeueBuffer: allocating a new buffer for slot %d", *outSlot);
-            sp<GraphicBuffer> graphicBuffer(mCore->mAllocator->createGraphicBuffer(
-                    width, height, format, usage, &error));
-            { // Autolock scope
-                Mutex::Autolock lock(mCore->mMutex);
+            if (mCore->mIsAbandoned) {
+                mCore->mFreeSlots.insert(*outSlot);
+                mCore->clearBufferSlotLocked(*outSlot);
+                BQ_LOGE("dequeueBuffer: BufferQueue has been abandoned");
+                return NO_INIT;
+            }
 
-                if (graphicBuffer != NULL && !mCore->mIsAbandoned) {
-                    graphicBuffer->setGenerationNumber(mCore->mGenerationNumber);
-                    mSlots[*outSlot].mGraphicBuffer = graphicBuffer;
-                }
-
-                mCore->mIsAllocating = false;
-                mCore->mIsAllocatingCondition.broadcast();
-
-                if (graphicBuffer == NULL) {
-                    BQ_LOGE("dequeueBuffer: createGraphicBuffer failed");
-                    return error;
-                }
-
-                if (mCore->mIsAbandoned) {
-                    BQ_LOGE("dequeueBuffer: BufferQueue has been abandoned");
-                    return NO_INIT;
-                }
-
-                VALIDATE_CONSISTENCY();
-            } // Autolock scope
-        }
-#endif
+            VALIDATE_CONSISTENCY();
+        } // Autolock scope
     }
 
     if (attachedByConsumer) {
@@ -806,11 +748,7 @@ status_t BufferQueueProducer::queueBuffer(int slot,
         return BAD_VALUE;
     }
 
-#if RK_STEREO
-    switch (scalingMode & 0xff) {
-#else
     switch (scalingMode) {
-#endif
         case NATIVE_WINDOW_SCALING_MODE_FREEZE:
         case NATIVE_WINDOW_SCALING_MODE_SCALE_TO_WINDOW:
         case NATIVE_WINDOW_SCALING_MODE_SCALE_CROP:
@@ -963,9 +901,11 @@ status_t BufferQueueProducer::queueBuffer(int slot,
 
         output->inflate(mCore->mDefaultWidth, mCore->mDefaultHeight,
                 mCore->mTransformHint,
-                static_cast<uint32_t>(mCore->mQueue.size()));
+                static_cast<uint32_t>(mCore->mQueue.size()),
+                mCore->mFrameCounter + 1);
 
         ATRACE_INT(mCore->mConsumerName.string(), mCore->mQueue.size());
+        mCore->mOccupancyTracker.registerOccupancyChange(mCore->mQueue.size());
 
         // Take a ticket for the callback functions
         callbackTicket = mNextCallbackTicket++;
@@ -1169,7 +1109,8 @@ status_t BufferQueueProducer::connect(const sp<IProducerListener>& listener,
             mCore->mConnectedApi = api;
             output->inflate(mCore->mDefaultWidth, mCore->mDefaultHeight,
                     mCore->mTransformHint,
-                    static_cast<uint32_t>(mCore->mQueue.size()));
+                    static_cast<uint32_t>(mCore->mQueue.size()),
+                    mCore->mFrameCounter + 1);
 
             // Set up a death notification so that we can disconnect
             // automatically if the remote producer dies
@@ -1322,7 +1263,8 @@ void BufferQueueProducer::allocateBuffers(uint32_t width, uint32_t height,
         for (size_t i = 0; i <  newBufferCount; ++i) {
             status_t result = NO_ERROR;
             sp<GraphicBuffer> graphicBuffer(mCore->mAllocator->createGraphicBuffer(
-                    allocWidth, allocHeight, allocFormat, allocUsage, &result));
+                    allocWidth, allocHeight, allocFormat, allocUsage,
+                    {mConsumerName.string(), mConsumerName.size()}, &result));
             if (result != NO_ERROR) {
                 BQ_LOGE("allocateBuffers: failed to allocate buffer (%u x %u, format"
                         " %u, usage %u)", width, height, format, usage);
@@ -1404,14 +1346,6 @@ String8 BufferQueueProducer::getConsumerName() const {
     return mConsumerName;
 }
 
-uint64_t BufferQueueProducer::getNextFrameNumber() const {
-    ATRACE_CALL();
-
-    Mutex::Autolock lock(mCore->mMutex);
-    uint64_t nextFrameNumber = mCore->mFrameCounter + 1;
-    return nextFrameNumber;
-}
-
 status_t BufferQueueProducer::setSharedBufferMode(bool sharedBufferMode) {
     ATRACE_CALL();
     BQ_LOGV("setSharedBufferMode: %d", sharedBufferMode);
@@ -1478,6 +1412,22 @@ status_t BufferQueueProducer::getLastQueuedBuffer(sp<GraphicBuffer>* outBuffer,
             mLastQueuedTransform, true /* filter */);
 
     return NO_ERROR;
+}
+
+bool BufferQueueProducer::getFrameTimestamps(uint64_t frameNumber,
+        FrameTimestamps* outTimestamps) const {
+    ATRACE_CALL();
+    BQ_LOGV("getFrameTimestamps, %" PRIu64, frameNumber);
+    sp<IConsumerListener> listener;
+
+    {
+        Mutex::Autolock lock(mCore->mMutex);
+        listener = mCore->mConsumerListener;
+    }
+    if (listener != NULL) {
+        return listener->getFrameTimestamps(frameNumber, outTimestamps);
+    }
+    return false;
 }
 
 void BufferQueueProducer::binderDied(const wp<android::IBinder>& /* who */) {
