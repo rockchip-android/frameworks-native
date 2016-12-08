@@ -2228,7 +2228,15 @@ bool SurfaceFlinger::doComposeSurfaces(const sp<const DisplayDevice>& hw, const 
     HWComposer& hwc(getHwComposer());
     HWComposer::LayerListIterator cur = hwc.begin(id);
     const HWComposer::LayerListIterator end = hwc.end(id);
+#if RK_COMP_TYPE
+    static int skipCount = 0;
 
+    //Drm mode not need skip the first 5 count. DRM:RK_USE_DRM == 1
+    if (skipCount < 5) {
+        skipCount ++;
+        skipCount = skipCount + (RK_USE_DRM * 5);
+    }
+#endif
     bool hasGlesComposition = hwc.hasGlesComposition(id);
     if (hasGlesComposition) {
         if (!hw->makeCurrent(mEGLDisplay, mEGLContext)) {
@@ -2251,12 +2259,15 @@ bool SurfaceFlinger::doComposeSurfaces(const sp<const DisplayDevice>& hw, const 
         if(id <= 1 && cur != end) {
             isMixNeedClear = cur->getCompositionType() == HWC_MIX_V2;
         }
+
+        if (skipCount < 5) {
+            ;//do nothing
+            //ALOGD("hwc %d clear skipCount is %d", __LINE__, skipCount);
+        } else if (hasHwcComposition || haveBlit || haveLcdc || isMixNeedClear)
+#else
+	if (hasHwcComposition)
 #endif
-        if (hasHwcComposition
-#if RK_COMP_TYPE
-        || haveBlit || haveLcdc || isMixNeedClear
-#endif
-        ) {
+        {
             // when using overlays, we assume a fully transparent framebuffer
             // NOTE: we could reduce how much we need to clear, for instance
             // remove where there are opaque FB layers. however, on some
