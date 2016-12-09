@@ -380,6 +380,8 @@ static status_t selectEGLConfig(EGLDisplay display, EGLint format,
         attribs[EGL_RED_SIZE]                   = 8;
         attribs[EGL_GREEN_SIZE]                 = 8;
         attribs[EGL_BLUE_SIZE]                  = 8;
+        // mixed_mode of HWC needs that fb_target_layer should support alpha.
+        attribs[EGL_ALPHA_SIZE]                 = 8;
         wantedAttribute                         = EGL_NONE;
         wantedAttributeValue                    = EGL_NONE;
     } else {
