@@ -57,6 +57,7 @@
     <feature name="android.hardware.bluetooth_le" />
 
     <feature name="android.hardware.ethernet" />
+    <feature name="android.software.pppoe" />
 
     <!-- devices with GPS must include android.hardware.location.gps.xml -->
     <!-- devices with a rear-facing camera must include one of these as appropriate:
