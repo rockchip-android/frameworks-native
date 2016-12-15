@@ -249,8 +249,35 @@ status_t BufferQueueProducer::waitForFreeSlotThenRelock(FreeSlotCaller caller,
             return NO_INIT;
         }
 
+#if RK_USE_3_FB
+        *found = BufferQueueCore::INVALID_BUFFER_SLOT;
+#endif
         int dequeuedCount = 0;
         int acquiredCount = 0;
+        const int maxBufferCount = mCore->getMaxBufferCountLocked();
+
+#if RK_USE_3_FB
+        for (int s = 0; s < maxBufferCount; ++s) {
+
+            if(mSlots[s].mBufferState.isFree())
+            {
+                ALOGD("waitForFreeSlotThenRelock line=%d",__LINE__);
+                // .KP : selecting_free_slot_to_dequue
+                // We return the oldest of the free buffers
+                //      to avoid stalling the producer
+                //      if possible,
+                // since the consumer
+                // may still have pending reads
+                //      of in-flight buffers
+                if (*found == BufferQueueCore::INVALID_BUFFER_SLOT
+                        || mSlots[s].mFrameNumber < mSlots[*found].mFrameNumber) { // to search for the oldest free buffer_slot
+                    *found = s;
+                    BQ_LOGD("'*found' : %d, buffer in the slot : %p.", *found, mSlots[*found].mGraphicBuffer.get() );
+                }
+
+            }
+        }
+#endif
         for (int s : mCore->mActiveBuffers) {
             if (mSlots[s].mBufferState.isDequeued()) {
                 ++dequeuedCount;
@@ -258,6 +285,7 @@ status_t BufferQueueProducer::waitForFreeSlotThenRelock(FreeSlotCaller caller,
             if (mSlots[s].mBufferState.isAcquired()) {
                 ++acquiredCount;
             }
+
         }
 
         // Producers are not allowed to dequeue more than
@@ -270,19 +298,20 @@ status_t BufferQueueProducer::waitForFreeSlotThenRelock(FreeSlotCaller caller,
             return INVALID_OPERATION;
         }
 
+#if !RK_USE_3_FB
         *found = BufferQueueCore::INVALID_BUFFER_SLOT;
-
+#endif
         // If we disconnect and reconnect quickly, we can be in a state where
         // our slots are empty but we have many buffers in the queue. This can
         // cause us to run out of memory if we outrun the consumer. Wait here if
         // it looks like we have too many buffers queued up.
-        const int maxBufferCount = mCore->getMaxBufferCountLocked();
         bool tooManyBuffers = mCore->mQueue.size()
                             > static_cast<size_t>(maxBufferCount);
         if (tooManyBuffers) {
             BQ_LOGV("%s: queue size is %zu, waiting", callerString,
                     mCore->mQueue.size());
         } else {
+#if !RK_USE_3_FB
             // If in shared buffer mode and a shared buffer exists, always
             // return it.
             if (mCore->mSharedBufferMode && mCore->mSharedBufferSlot !=
@@ -307,11 +336,31 @@ status_t BufferQueueProducer::waitForFreeSlotThenRelock(FreeSlotCaller caller,
                     }
                 }
             }
+#else
+            // If in shared buffer mode and a shared buffer exists, always
+            // return it.
+            if (mCore->mSharedBufferMode && mCore->mSharedBufferSlot !=
+                    BufferQueueCore::INVALID_BUFFER_SLOT) {
+                *found = mCore->mSharedBufferSlot;
+            } else {
+                if (*found != BufferQueueCore::INVALID_BUFFER_SLOT)
+                {
+                    mCore->mFreeBuffers.remove(*found);
+                    mCore->mFreeSlots.erase(*found);
+                }
+            }
+#endif
+
         }
 
-        // If no buffer is found, or if the queue has too many buffers
-        // outstanding, wait for a buffer to be acquired or released, or for the
-        // max buffer count to change.
+        // If no buffer
+        // is found,
+        // or if the queue
+        // has too many buffers outstanding,
+        // wait for a buffer
+        //          to be acquired or released,
+        //      or for the max buffer count
+        //          to change.
         tryAgain = (*found == BufferQueueCore::INVALID_BUFFER_SLOT) ||
                    tooManyBuffers;
         if (tryAgain) {
@@ -494,6 +543,7 @@ status_t BufferQueueProducer::dequeueBuffer(int *outSlot,
 
     if (returnFlags & BUFFER_NEEDS_REALLOCATION) {
         status_t error;
+
         BQ_LOGV("dequeueBuffer: allocating a new buffer for slot %d", *outSlot);
         sp<GraphicBuffer> graphicBuffer(mCore->mAllocator->createGraphicBuffer(
                 width, height, format, usage,

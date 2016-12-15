@@ -42,7 +42,11 @@
 #include "HWComposer.h"
 
 #ifndef NUM_FRAMEBUFFER_SURFACE_BUFFERS
+#if RK_USE_3_FB
+#define NUM_FRAMEBUFFER_SURFACE_BUFFERS (3)
+#else
 #define NUM_FRAMEBUFFER_SURFACE_BUFFERS (2)
+#endif
 #endif
 
 // ----------------------------------------------------------------------------

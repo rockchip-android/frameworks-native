@@ -166,7 +166,11 @@ void Layer::onFirstRef() {
 #ifdef TARGET_DISABLE_TRIPLE_BUFFERING
 #warning "disabling triple buffering"
 #else
+#if RK_USE_3_LAYER_BUFFER
+    mProducer->setMaxDequeuedBufferCount(3);
+#else
     mProducer->setMaxDequeuedBufferCount(2);
+#endif
 #endif
 
     const sp<const DisplayDevice> hw(mFlinger->getDefaultDisplayDevice());

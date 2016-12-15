@@ -97,7 +97,13 @@ else
 RK_VR := 0
 endif
 
-LOCAL_CFLAGS += -DRK_VR=$(RK_VR)
+ifeq ($(strip $(BOARD_USE_DRM)),true)
+RK_USE_3_FB = 1
+else
+RK_USE_3_FB = 0
+endif
+
+LOCAL_CFLAGS += -DRK_VR=$(RK_VR) -DRK_USE_3_FB=$(RK_USE_3_FB)
 
 endif
 ########## End of RK_SUPPORT ##########
