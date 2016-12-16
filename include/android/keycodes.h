@@ -767,14 +767,12 @@ enum {
     AKEYCODE_SYSTEM_NAVIGATION_LEFT = 282,
     /** fingerprint navigation key, right. */
     AKEYCODE_SYSTEM_NAVIGATION_RIGHT = 283,
-
+   
     AKEYCODE_TV_KEYMOUSE_LEFT = 284,
     AKEYCODE_TV_KEYMOUSE_RIGHT = 285,
     AKEYCODE_TV_KEYMOUSE_UP = 286,
     AKEYCODE_TV_KEYMOUSE_DOWN = 287,
     AKEYCODE_TV_KEYMOUSE_MODE_SWITCH = 288
-    AKEYCODE_FLYMODE            = 311,
-    AKEYCODE_MICMUTE            = 312
 
     // NOTE: If you add a new keycode here you must also add it to several other files.
     //       Refer to frameworks/base/core/java/android/view/KeyEvent.java for the full list.
