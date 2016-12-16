@@ -261,7 +261,6 @@ status_t BufferQueueProducer::waitForFreeSlotThenRelock(FreeSlotCaller caller,
 
             if(mSlots[s].mBufferState.isFree())
             {
-                ALOGD("waitForFreeSlotThenRelock line=%d",__LINE__);
                 // .KP : selecting_free_slot_to_dequue
                 // We return the oldest of the free buffers
                 //      to avoid stalling the producer
@@ -272,7 +271,7 @@ status_t BufferQueueProducer::waitForFreeSlotThenRelock(FreeSlotCaller caller,
                 if (*found == BufferQueueCore::INVALID_BUFFER_SLOT
                         || mSlots[s].mFrameNumber < mSlots[*found].mFrameNumber) { // to search for the oldest free buffer_slot
                     *found = s;
-                    BQ_LOGD("'*found' : %d, buffer in the slot : %p.", *found, mSlots[*found].mGraphicBuffer.get() );
+                    BQ_LOGV("'*found' : %d, buffer in the slot : %p.", *found, mSlots[*found].mGraphicBuffer.get() );
                 }
 
             }
