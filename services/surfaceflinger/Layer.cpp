@@ -19,6 +19,10 @@
 #define LOG_TAG "Layer"
 #define ATRACE_TAG ATRACE_TAG_GRAPHICS
 
+// #define ENABLE_DEBUG_LOG
+#include <log/custom_log.h>
+
+
 #include <stdlib.h>
 #include <stdint.h>
 #include <sys/types.h>
@@ -500,13 +504,15 @@ FloatRect Layer::computeCrop(const sp<const DisplayDevice>& hw) const {
 }
 
 #if RK_OPT_DVFS
-static int fd_dvfs = -1;
+/**
+ * 标识当前是否使用 DVFS 机制优化瞬时的 GPU 性能.
+ */
 static int dvfs_stat = 0;
-static void optimizationDvfs(int on) {
-    char value[30];
-    int ret = -1;
 
-    if(fd_dvfs < 0) {
+static int openDvfsNode()
+{
+    int fd_dvfs = -1;
+
 #ifdef SF_RK3288
         fd_dvfs = open("/sys/devices/ffa30000.gpu/dvfs", O_RDWR, 0);
 #elif SF_RK3399
@@ -514,39 +520,106 @@ static void optimizationDvfs(int on) {
 #else
         fd_dvfs = -1;
 #endif
+
+    return fd_dvfs;
+}
+
+#if SF_RK3399
+static bool shouldEnforceGpuHighPerformance()
+{
+    bool ret = false;
+
+    ssize_t numOfBytesRead = 0;
+    char bytesRead[64] = "\0";
+    char* governor;
+
+    int fd = -1; // fd_of_dvfs_node.
+
+    fd = openDvfsNode();
+    if ( fd < 0 )
+    {
+        ret = false;
+        goto EXIT;
     }
 
-    if (fd_dvfs < 0) {
-        ALOGV("on=%d,fd_dvfs=%d,%s", on, fd_dvfs, strerror(errno));
+    numOfBytesRead = read(fd, bytesRead, sizeof(bytesRead) );
+    if ( numOfBytesRead <= 0 )
+    {
+        E("fail to read governor of devfreq_gpu, numOfBytesRead : %zd, err : %s.", numOfBytesRead, strerror(errno) );
+        goto EXIT;
+    }
+    D("numOfBytesRead : %zd", numOfBytesRead);
+    D_MEM(bytesRead, numOfBytesRead); // 'bytesRead' 中的有效内容以 '\n' 结尾, 而不是 '\0'.
+
+    bytesRead[numOfBytesRead - 1] = '\0';   // "- 2" : 将 "xxx'\n'" 中的 '\n' 置为 '\0'.
+    governor = bytesRead;
+    D_STR(governor);
+
+    /* 只有当前 governor 是 'simple_ondemand' 才 应该 提高 clk_gpu. */
+    if (0 == strcmp(governor, "simple_ondemand") )
+    {
+        ret = true;
+    }
+    else
+    {
+        W("should not enforce gpu high performance, for curr governor : %s", governor);
+        ret = false;
+    }
+    // .trick : 3399 系统通常使用 governor "simple_ondemand", 这里为优化性能, 将临时设置为 "performance".
+    //          其他以调试为目的的定频操作, 最好 "不要" 使用 "performance", 而使用 "userspace".
+
+EXIT:
+    if ( fd != -1 )
+    {
+        close(fd);
+    }
+    return ret;
+}
+#endif // #if SF_RK3399
+
+static void optimizationDvfs(int on) {
+    char value[30];
+    int ret = -1;
+
+    int fd = -1; // fd_of_dvfs_node.
+
+    fd = openDvfsNode();
+    if (fd< 0) {
+        ALOGV("on=%d,fd_dvfs=%d,%s", on, fd, strerror(errno));
         return;
     }
 
 #ifdef SF_RK3288
     if (on) {
         sprintf(value, "on");
-        ret = write(fd_dvfs, value, sizeof(value));
+        ret = write(fd, value, sizeof(value));
     } else {
         sprintf(value, "off");
-        ret = write(fd_dvfs, value, sizeof(value));
+        ret = write(fd, value, sizeof(value));
     }
 #elif SF_RK3399
     if (on) {
         sprintf(value, "performance");
-        ret = write(fd_dvfs, value, sizeof(value));
+        ret = write(fd, value, sizeof(value));
     } else {
         sprintf(value, "simple_ondemand");
-        ret = write(fd_dvfs, value, sizeof(value));
+        ret = write(fd, value, sizeof(value));
     }
 #else
     sprintf(value, "nothing");
 #endif
 
     if (ret == -1)
-        ALOGV("ret=%d,on=%d,fd_dvfs=%d,%s", ret, on, fd_dvfs, strerror(errno));
+        ALOGV("ret=%d,on=%d,fd_dvfs=%d,%s", ret, on, fd, strerror(errno));
+
+    if ( fd != -1 )
+    {
+        close(fd);
+    }
 
     return;
 }
-#endif
+#endif // #if RK_OPT_DVFS
 
 #ifdef USE_HWC2
 void Layer::setGeometry(const sp<const DisplayDevice>& displayDevice)
@@ -726,7 +799,13 @@ void Layer::setGeometry(
 #else
     if (orientation & Transform::ROT_INVALID) {
 #if RK_OPT_DVFS
-        if (dvfs_stat == 0) {
+        if (dvfs_stat == 0
+#if SF_RK3399
+            && shouldEnforceGpuHighPerformance()
+#endif
+        )
+        {
+            ALOGI("start forcing gpu high performance.");
             optimizationDvfs(1);
             dvfs_stat = 1;
         }
@@ -736,6 +815,7 @@ void Layer::setGeometry(
     } else {
 #if RK_OPT_DVFS
         if (dvfs_stat == 1) {
+            ALOGI("stop forcing gpu high performance.");
             optimizationDvfs(0);
             dvfs_stat = 0;
         }
