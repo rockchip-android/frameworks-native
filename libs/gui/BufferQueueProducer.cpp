@@ -28,6 +28,7 @@
 
 #define EGL_EGLEXT_PROTOTYPES
 
+#include <binder/IPCThreadState.h>
 #include <gui/BufferItem.h>
 #include <gui/BufferQueueCore.h>
 #include <gui/BufferQueueProducer.h>
@@ -1179,7 +1180,7 @@ status_t BufferQueueProducer::connect(const sp<IProducerListener>& listener,
             status = BAD_VALUE;
             break;
     }
-
+    mCore->mConnectedPid = IPCThreadState::self()->getCallingPid();
     mCore->mBufferHasBeenQueued = false;
     mCore->mDequeueBufferCannotBlock = false;
     if (mDequeueTimeout < 0) {
@@ -1192,7 +1193,7 @@ status_t BufferQueueProducer::connect(const sp<IProducerListener>& listener,
     return status;
 }
 
-status_t BufferQueueProducer::disconnect(int api) {
+status_t BufferQueueProducer::disconnect(int api, DisconnectMode mode) {
     ATRACE_CALL();
     BQ_LOGV("disconnect: api %d", api);
 
@@ -1200,6 +1201,14 @@ status_t BufferQueueProducer::disconnect(int api) {
     sp<IConsumerListener> listener;
     { // Autolock scope
         Mutex::Autolock lock(mCore->mMutex);
+
+        if (mode == DisconnectMode::AllLocal) {
+            if (IPCThreadState::self()->getCallingPid() != mCore->mConnectedPid) {
+                return NO_ERROR;
+            }
+            api = BufferQueueCore::CURRENTLY_CONNECTED_API;
+        }
+
         mCore->waitWhileAllocatingLocked();
 
         if (mCore->mIsAbandoned) {
@@ -1238,6 +1247,7 @@ status_t BufferQueueProducer::disconnect(int api) {
                             BufferQueueCore::INVALID_BUFFER_SLOT;
                     mCore->mConnectedProducerListener = NULL;
                     mCore->mConnectedApi = BufferQueueCore::NO_CONNECTED_API;
+                    mCore->mConnectedPid = -1;
                     mCore->mSidebandStream.clear();
                     mCore->mDequeueCondition.broadcast();
                     listener = mCore->mConsumerListener;
