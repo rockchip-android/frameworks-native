@@ -1142,6 +1142,9 @@ void Layer::onDraw(const sp<const DisplayDevice>& hw, const Region& clip,
     }
 
     bool blackOutLayer = isProtected() || (isSecure() && !hw->isSecure());
+#if RK_BLACK_NV12_10_LAYER
+    blackOutLayer = blackOutLayer || (mActiveBuffer->getPixelFormat()== HAL_PIXEL_FORMAT_YCrCb_NV12_10);
+#endif
 
     RenderEngine& engine(mFlinger->getRenderEngine());
 

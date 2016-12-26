@@ -740,7 +740,7 @@ status_t HWComposer::prepare() {
                     //ALOGD("prepare: %d, type=%d, handle=%p",
                     //        i, l.compositionType, l.handle);
 
-#if RK_USE_DRM
+#if !RK_SUPPORT
                     if (l.flags & HWC_SKIP_LAYER) {
 
                         l.compositionType = HWC_FRAMEBUFFER;
