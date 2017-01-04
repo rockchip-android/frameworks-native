@@ -244,6 +244,9 @@ status_t BufferQueueProducer::waitForFreeSlotThenRelock(FreeSlotCaller caller,
     auto callerString = (caller == FreeSlotCaller::Dequeue) ?
             "dequeueBuffer" : "attachBuffer";
     bool tryAgain = true;
+#if RK_USE_3_FB
+    bool bFbBufferQueue = false;
+#endif
     while (tryAgain) {
         if (mCore->mIsAbandoned) {
             BQ_LOGE("%s: BufferQueue has been abandoned", callerString);
@@ -251,33 +254,17 @@ status_t BufferQueueProducer::waitForFreeSlotThenRelock(FreeSlotCaller caller,
         }
 
 #if RK_USE_3_FB
-        *found = BufferQueueCore::INVALID_BUFFER_SLOT;
+        if(!strcmp(mCore->mConsumerName,"FramebufferSurface") &&
+            (mCore->mConsumerUsageBits & GRALLOC_USAGE_HW_FB) == GRALLOC_USAGE_HW_FB)
+        {
+            bFbBufferQueue = true;
+        }
 #endif
         int dequeuedCount = 0;
         int acquiredCount = 0;
         const int maxBufferCount = mCore->getMaxBufferCountLocked();
 
-#if RK_USE_3_FB
-        for (int s = 0; s < maxBufferCount; ++s) {
 
-            if(mSlots[s].mBufferState.isFree())
-            {
-                // .KP : selecting_free_slot_to_dequue
-                // We return the oldest of the free buffers
-                //      to avoid stalling the producer
-                //      if possible,
-                // since the consumer
-                // may still have pending reads
-                //      of in-flight buffers
-                if (*found == BufferQueueCore::INVALID_BUFFER_SLOT
-                        || mSlots[s].mFrameNumber < mSlots[*found].mFrameNumber) { // to search for the oldest free buffer_slot
-                    *found = s;
-                    BQ_LOGV("'*found' : %d, buffer in the slot : %p.", *found, mSlots[*found].mGraphicBuffer.get() );
-                }
-
-            }
-        }
-#endif
         for (int s : mCore->mActiveBuffers) {
             if (mSlots[s].mBufferState.isDequeued()) {
                 ++dequeuedCount;
@@ -298,9 +285,32 @@ status_t BufferQueueProducer::waitForFreeSlotThenRelock(FreeSlotCaller caller,
             return INVALID_OPERATION;
         }
 
-#if !RK_USE_3_FB
         *found = BufferQueueCore::INVALID_BUFFER_SLOT;
+#if RK_USE_3_FB
+        if(bFbBufferQueue)
+        {
+            for (int s = 0; s < maxBufferCount; ++s) {
+
+                if(mSlots[s].mBufferState.isFree())
+                {
+                    // .KP : selecting_free_slot_to_dequue
+                    // We return the oldest of the free buffers
+                    //      to avoid stalling the producer
+                    //      if possible,
+                    // since the consumer
+                    // may still have pending reads
+                    //      of in-flight buffers
+                    if (*found == BufferQueueCore::INVALID_BUFFER_SLOT
+                            || mSlots[s].mFrameNumber < mSlots[*found].mFrameNumber) { // to search for the oldest free buffer_slot
+                        *found = s;
+                        BQ_LOGV("'*found' : %d, buffer in the slot : %p.", *found, mSlots[*found].mGraphicBuffer.get() );
+                    }
+
+                }
+            }
+        }
 #endif
+
         // If we disconnect and reconnect quickly, we can be in a state where
         // our slots are empty but we have many buffers in the queue. This can
         // cause us to run out of memory if we outrun the consumer. Wait here if
@@ -311,46 +321,51 @@ status_t BufferQueueProducer::waitForFreeSlotThenRelock(FreeSlotCaller caller,
             BQ_LOGV("%s: queue size is %zu, waiting", callerString,
                     mCore->mQueue.size());
         } else {
-#if !RK_USE_3_FB
-            // If in shared buffer mode and a shared buffer exists, always
-            // return it.
-            if (mCore->mSharedBufferMode && mCore->mSharedBufferSlot !=
-                    BufferQueueCore::INVALID_BUFFER_SLOT) {
-                *found = mCore->mSharedBufferSlot;
-            } else {
-                if (caller == FreeSlotCaller::Dequeue) {
-                    // If we're calling this from dequeue, prefer free buffers
-                    int slot = getFreeBufferLocked();
-                    if (slot != BufferQueueCore::INVALID_BUFFER_SLOT) {
-                        *found = slot;
-                    } else if (mCore->mAllowAllocation) {
-                        *found = getFreeSlotLocked();
-                    }
+#if RK_USE_3_FB
+            if(bFbBufferQueue)
+            {
+                // If in shared buffer mode and a shared buffer exists, always
+                // return it.
+                if (mCore->mSharedBufferMode && mCore->mSharedBufferSlot !=
+                        BufferQueueCore::INVALID_BUFFER_SLOT) {
+                    *found = mCore->mSharedBufferSlot;
                 } else {
-                    // If we're calling this from attach, prefer free slots
-                    int slot = getFreeSlotLocked();
-                    if (slot != BufferQueueCore::INVALID_BUFFER_SLOT) {
-                        *found = slot;
-                    } else {
-                        *found = getFreeBufferLocked();
+                    if (*found != BufferQueueCore::INVALID_BUFFER_SLOT)
+                    {
+                        mCore->mFreeBuffers.remove(*found);
+                        mCore->mFreeSlots.erase(*found);
                     }
                 }
             }
-#else
-            // If in shared buffer mode and a shared buffer exists, always
-            // return it.
-            if (mCore->mSharedBufferMode && mCore->mSharedBufferSlot !=
-                    BufferQueueCore::INVALID_BUFFER_SLOT) {
-                *found = mCore->mSharedBufferSlot;
-            } else {
-                if (*found != BufferQueueCore::INVALID_BUFFER_SLOT)
-                {
-                    mCore->mFreeBuffers.remove(*found);
-                    mCore->mFreeSlots.erase(*found);
+            else
+#endif
+            {
+
+                // If in shared buffer mode and a shared buffer exists, always
+                // return it.
+                if (mCore->mSharedBufferMode && mCore->mSharedBufferSlot !=
+                        BufferQueueCore::INVALID_BUFFER_SLOT) {
+                    *found = mCore->mSharedBufferSlot;
+                } else {
+                    if (caller == FreeSlotCaller::Dequeue) {
+                        // If we're calling this from dequeue, prefer free buffers
+                        int slot = getFreeBufferLocked();
+                        if (slot != BufferQueueCore::INVALID_BUFFER_SLOT) {
+                            *found = slot;
+                        } else if (mCore->mAllowAllocation) {
+                            *found = getFreeSlotLocked();
+                        }
+                    } else {
+                        // If we're calling this from attach, prefer free slots
+                        int slot = getFreeSlotLocked();
+                        if (slot != BufferQueueCore::INVALID_BUFFER_SLOT) {
+                            *found = slot;
+                        } else {
+                            *found = getFreeBufferLocked();
+                        }
+                    }
                 }
             }
-#endif
-
         }
 
         // If no buffer
