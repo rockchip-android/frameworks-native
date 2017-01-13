@@ -60,6 +60,10 @@ ConsumerBase::ConsumerBase(const sp<IGraphicBufferConsumer>& bufferQueue, bool c
     // Choose a name using the PID and a process-unique ID.
     mName = String8::format("unnamed-%d-%d", getpid(), createProcessUniqueId());
 
+    // Init the stereo to zero for something it is random value
+#if RK_STEREO
+    mAlreadyStereo = 0;
+#endif
     // Note that we can't create an sp<...>(this) in a ctor that will not keep a
     // reference once the ctor ends, as that would cause the refcount of 'this'
     // dropping to 0 at the end of the ctor.  Since all we need is a wp<...>
