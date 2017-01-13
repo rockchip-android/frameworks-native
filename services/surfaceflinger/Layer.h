@@ -269,6 +269,7 @@ public:
 #if RK_STEREO
     void setDisplayStereo(const sp<const DisplayDevice>& hw,
             HWComposer::HWCLayerInterface& layer);
+    void initDisplayStereo(void);
 #endif
 
 #if RK_VR
