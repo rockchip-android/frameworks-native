@@ -308,6 +308,9 @@ public:
     float getDpiX(int disp) const;
     float getDpiY(int disp) const;
     nsecs_t getRefreshPeriod(int disp) const;
+#if RK_SUPPORT
+    size_t updateRefreshPeriod(int disp ,size_t refresh);
+#endif
     android_color_mode_t getColorMode(int disp) const;
 
     const Vector<DisplayConfig>& getConfigs(int disp) const;
@@ -372,6 +375,9 @@ private:
 #if RK_COMP_TYPE
         bool hasBlitComp;
         bool haslcdComp;
+#endif
+#if RK_SUPPORT
+        size_t updateRefresh;
 #endif
         size_t capacity;
         hwc_display_contents_1* list;

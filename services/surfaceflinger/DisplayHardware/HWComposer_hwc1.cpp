@@ -320,6 +320,16 @@ void HWComposer::hotplug(int disp, int connected) {
                 disp, connected);
         return;
     }
+
+#if !RK_USE_DRM && RK_SUPPORT
+    if (disp == HWC_DISPLAY_PRIMARY) {
+        int value = 0;
+        mHwc->query(mHwc, HWC_VSYNC_PERIOD, &value);
+        mDisplayData[disp].updateRefresh = size_t(value);
+        return;
+    }
+#endif
+
     queryDisplayProperties(disp);
     // Do not teardown or recreate the primary display
     if (disp != HWC_DISPLAY_PRIMARY) {
@@ -544,6 +554,10 @@ float HWComposer::getDpiY(int disp) const {
 
 nsecs_t HWComposer::getRefreshPeriod(int disp) const {
     size_t currentConfig = mDisplayData[disp].currentConfig;
+#if RK_SUPPORT
+    if (mDisplayData[disp].updateRefresh > 0)
+        return mDisplayData[disp].updateRefresh;
+#endif
     return mDisplayData[disp].configs[currentConfig].refresh;
 }
 
@@ -1415,6 +1429,9 @@ HWComposer::DisplayData::DisplayData()
     hasFbComp(false), hasOvComp(false),
 #if RK_COMP_TYPE
     hasBlitComp(false), haslcdComp(false),
+#endif
+#if RK_SUPPORT
+    updateRefresh(0),
 #endif
     capacity(0), list(NULL),
     framebufferTarget(NULL), fbTargetHandle(0),
