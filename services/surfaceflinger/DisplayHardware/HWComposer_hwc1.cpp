@@ -1041,6 +1041,9 @@ public:
     virtual int32_t getDisplayStereo() const {
         return getLayer()->displayStereo;
     }
+    virtual void initDisplayStereo() {
+        getLayer()->displayStereo = 0;
+    }
 #endif
     virtual void setDefaultState() {
         hwc_layer_1_t* const l = getLayer();

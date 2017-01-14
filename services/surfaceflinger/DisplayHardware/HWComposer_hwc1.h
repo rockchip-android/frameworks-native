@@ -198,6 +198,7 @@ public:
 #if RK_STEREO
         virtual void setAlreadyStereo(int32_t alreadyStereo) = 0;
         virtual int32_t getDisplayStereo() const = 0;
+        virtual void initDisplayStereo() = 0;
 #endif
     };
 

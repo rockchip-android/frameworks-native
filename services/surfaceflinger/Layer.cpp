@@ -949,9 +949,9 @@ void Layer::setPerFrameData(const sp<const DisplayDevice>& hw,
 #if RK_LAYER_NAME
     layer.setLayername(getName().string());
 #endif
-#if RK_STEREO&!RK_VR
+#if RK_STEREO && !RK_VR
     layer.setAlreadyStereo(mSurfaceFlingerConsumer->getAlreadyStereo());
-    initDisplayStereo();
+    layer.initDisplayStereo();
 #endif
 }
 #endif
@@ -1017,10 +1017,6 @@ void Layer::setAcquireFence(const sp<const DisplayDevice>& /* hw */,
 void Layer::setDisplayStereo(const sp<const DisplayDevice>& /* hw */,
         HWComposer::HWCLayerInterface& layer) {
     displayStereo = layer.getDisplayStereo();
-}
-
-void Layer::initDisplayStereo(void) {
-    displayStereo = 0;
 }
 #endif
 
@@ -1329,7 +1325,6 @@ void Layer::clearWithOpenGL(const sp<const DisplayDevice>& hw,
     setStereoDrawVR(hw, engine, mMesh,
         mSurfaceFlingerConsumer->getAlreadyStereo()/*getStereoModeToDraw()*/, displayStereo);
 #elif RK_STEREO
-
     setStereoDraw(hw, engine, mMesh,
         mSurfaceFlingerConsumer->getAlreadyStereo(), displayStereo);
 #endif
