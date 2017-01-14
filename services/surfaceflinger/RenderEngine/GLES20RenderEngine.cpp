@@ -241,6 +241,13 @@ void GLES20RenderEngine::bindImageAsFramebuffer(EGLImageKHR image,
     *fbName = name;
 }
 
+void GLES20RenderEngine::bindyuvimg(EGLImageKHR image,GLuint name) {
+    // turn our EGLImage into a texture
+    //glGenTextures(1, &name);
+    glBindTexture(GL_TEXTURE_EXTERNAL_OES, name);
+    glEGLImageTargetTexture2DOES(GL_TEXTURE_EXTERNAL_OES, (GLeglImageOES)image);
+}
+
 void GLES20RenderEngine::unbindFramebuffer(uint32_t texName, uint32_t fbName) {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glDeleteFramebuffers(1, &fbName);

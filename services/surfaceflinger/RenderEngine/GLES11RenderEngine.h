@@ -69,6 +69,7 @@ protected:
     virtual void disableBlending();
 
     virtual void drawMesh(const Mesh& mesh);
+    virtual void bindyuvimg(EGLImageKHR image,GLuint name);
 
     virtual size_t getMaxTextureSize() const;
     virtual size_t getMaxViewportDims() const;

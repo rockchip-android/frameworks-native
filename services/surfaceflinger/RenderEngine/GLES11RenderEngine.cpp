@@ -263,6 +263,12 @@ void GLES11RenderEngine::unbindFramebuffer(uint32_t texName, uint32_t fbName) {
     glDeleteTextures(1, &texName);
 }
 
+#define UN_USED(arg)  (arg=arg)
+void GLES11RenderEngine::bindyuvimg(EGLImageKHR image,GLuint name) {
+    UN_USED(image);
+    UN_USED(name);
+}
+
 void GLES11RenderEngine::setupFillWithColor(float r, float g, float b, float a) {
     glColor4f(r, g, b, a);
     glDisable(GL_TEXTURE_EXTERNAL_OES);

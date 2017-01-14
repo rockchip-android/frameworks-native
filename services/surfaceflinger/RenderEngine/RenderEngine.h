@@ -25,7 +25,7 @@
 #include <EGL/eglext.h>
 #include <ui/mat4.h>
 #include <Transform.h>
-
+typedef unsigned int GLuint;
 #define EGL_NO_CONFIG ((EGLConfig)0)
 
 // ---------------------------------------------------------------------------
@@ -90,6 +90,7 @@ public:
         ~BindImageAsFramebuffer();
         int getStatus() const;
     };
+    virtual void bindyuvimg(EGLImageKHR image,GLuint name) = 0;
 
     // set-up
     virtual void checkErrors() const;

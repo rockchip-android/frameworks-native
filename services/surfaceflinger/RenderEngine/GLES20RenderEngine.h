@@ -61,6 +61,7 @@ class GLES20RenderEngine : public RenderEngine {
     virtual void bindImageAsFramebuffer(EGLImageKHR image,
             uint32_t* texName, uint32_t* fbName, uint32_t* status);
     virtual void unbindFramebuffer(uint32_t texName, uint32_t fbName);
+    virtual void bindyuvimg(EGLImageKHR image,GLuint name);
 
 public:
     GLES20RenderEngine();

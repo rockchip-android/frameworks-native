@@ -56,10 +56,24 @@
 #include "RenderEngine/RenderEngine.h"
 
 #include <mutex>
-
+#if RK_NV12_10_TO_NV12
+#define UN_NEED_GL
+#include <RockchipRga.h>
+#endif
 #define DEBUG_RESIZE    0
 
 namespace android {
+#if RK_NV12_10_TO_NV12
+typedef struct
+{
+     sp<GraphicBuffer> yuvTexBuffer;
+     EGLImageKHR img;
+} TexBufferImag;
+
+#define TexBufferMax  2
+#define TexKey 0x524f434b
+static TexBufferImag yuvTeximg[TexBufferMax] = {{NULL,EGL_NO_IMAGE_KHR},{NULL,EGL_NO_IMAGE_KHR}};
+#endif
 
 // ---------------------------------------------------------------------------
 
@@ -1100,10 +1114,72 @@ void Layer::draw(const sp<const DisplayDevice>& hw) const {
     onDraw(hw, Region(hw->bounds()), false);
 }
 
+#if RK_NV12_10_TO_NV12
+/* print time macros. */
+#define PRINT_TIME_START        \
+    struct timeval tpend1, tpend2;\
+    long usec1 = 0;\
+    gettimeofday(&tpend1,NULL);\
+
+#define PRINT_TIME_END(tag)        \
+    gettimeofday(&tpend2,NULL);\
+    usec1 = 1000*(tpend2.tv_sec - tpend1.tv_sec) + (tpend2.tv_usec- tpend1.tv_usec)/1000;\
+    if (property_get_bool("sys.hwc.time", 1)) \
+    ALOGD_IF(1,"%s use time=%ld ms",tag,usec1);\
+
+static int rgaCopyBit(sp<GraphicBuffer> src_buf, sp<GraphicBuffer> dst_buf, const Rect& rect)
+{
+    rga_info_t src, dst;
+    int src_l,src_t,src_r,src_b,src_h,src_stride,src_format;
+    int dst_l,dst_t,dst_r,dst_b,dst_h,dst_stride,dst_format;
+    RockchipRga& mRga = RockchipRga::get();
+    int ret = 0;
+
+    memset(&src, 0, sizeof(rga_info_t));
+    memset(&dst, 0, sizeof(rga_info_t));
+    src.fd = -1;
+    dst.fd = -1;
+
+    src_stride = src_buf->getStride();
+    src_format = src_buf->getPixelFormat();
+    src_h = src_buf->getHeight();
+
+    dst_stride = dst_buf->getStride();
+    dst_format = dst_buf->getPixelFormat();
+    dst_h = dst_buf->getHeight();
+
+    dst_l = src_l = rect.left;
+    dst_t = src_t = rect.top;
+    dst_r = src_r = rect.right;
+    dst_b = src_b = rect.bottom;
+    rga_set_rect(&src.rect, src_l, src_t, src_r - src_l, src_b - src_t, src_stride, src_h, src_format);
+    rga_set_rect(&dst.rect, dst_l, dst_t,  4096, dst_b - dst_t, dst_stride, dst_h, dst_format);
+
+    src.hnd = src_buf->handle;
+    dst.hnd = dst_buf->handle;
+//  src.rotation = rga_transform;
+//PRINT_TIME_START
+    ret = mRga.RkRgaBlit(&src, &dst, NULL);
+//PRINT_TIME_END("rgaCopyBit")
+    if(ret) {
+        ALOGD_IF(1,"rgaCopyBit  : src[x=%d,y=%d,w=%d,h=%d,ws=%d,hs=%d,format=0x%x],dst[x=%d,y=%d,w=%d,h=%d,ws=%d,hs=%d,format=0x%x]",
+            src.rect.xoffset, src.rect.yoffset, src.rect.width, src.rect.height, src.rect.wstride, src.rect.hstride, src.rect.format,
+            dst.rect.xoffset, dst.rect.yoffset, dst.rect.width, dst.rect.height, dst.rect.wstride, dst.rect.hstride, dst.rect.format);
+        ALOGD_IF(1,"rgaCopyBit : src hnd=%p,dst hnd=%p, src_format=0x%x ==> dst_format=0x%x\n",
+            (void*)src_buf->handle, (void*)(dst_buf->handle), src_format, dst_format);
+        return ret;
+    }
+
+    return ret;
+}
+#endif
+
+
 void Layer::onDraw(const sp<const DisplayDevice>& hw, const Region& clip,
         bool useIdentityTransform) const
 {
     ATRACE_CALL();
+    RenderEngine& engine(mFlinger->getRenderEngine());
 
     if (CC_UNLIKELY(mActiveBuffer == 0)) {
         // the texture has not been created yet, this Layer has
@@ -1135,7 +1211,57 @@ void Layer::onDraw(const sp<const DisplayDevice>& hw, const Region& clip,
 
     // Bind the current buffer to the GL texture, and wait for it to be
     // ready for us to draw into.
-    status_t err = mSurfaceFlingerConsumer->bindTextureImage();
+    status_t err = NO_ERROR;
+#if RK_NV12_10_TO_NV12
+    if(mActiveBuffer != NULL &&
+       mActiveBuffer->getPixelFormat() == HAL_PIXEL_FORMAT_YCrCb_NV12_10 )
+    {
+        const int yuvTexUsage = GraphicBuffer::USAGE_HW_TEXTURE /*| HDRUSAGE*/;
+        //GraphicBuffer::USAGE_SW_WRITE_RARELY;
+        const int yuvTexFormat = HAL_PIXEL_FORMAT_YCrCb_NV12;
+
+        static int yuvcnt;
+        int yuvIndex ;
+        yuvcnt ++;
+        yuvIndex = yuvcnt%2;
+        //Since rga cann't support scalet to bigger than 4096 limit to 4096
+        uint32_t w = mActiveBuffer->getWidth() > 4096 ? 4096:mActiveBuffer->getWidth();
+
+        if((yuvTeximg[yuvIndex].yuvTexBuffer != NULL) &&
+                   (yuvTeximg[yuvIndex].yuvTexBuffer->getWidth() != w ||
+                    yuvTeximg[yuvIndex].yuvTexBuffer->getHeight() != mActiveBuffer->getHeight()))
+        {
+            yuvTeximg[yuvIndex].yuvTexBuffer = NULL;
+            eglDestroyImageKHR(hw->getEglDisplay(), yuvTeximg[yuvIndex].img);
+        }
+        if(yuvTeximg[yuvIndex].yuvTexBuffer == NULL)
+        {
+            yuvTeximg[yuvIndex].yuvTexBuffer = new GraphicBuffer(w, mActiveBuffer->getHeight(),
+                                             yuvTexFormat, yuvTexUsage);
+            EGLClientBuffer clientBuffer = (EGLClientBuffer)yuvTeximg[yuvIndex].yuvTexBuffer->getNativeBuffer();
+            yuvTeximg[yuvIndex].img = eglCreateImageKHR(hw->getEglDisplay(), EGL_NO_CONTEXT, EGL_NATIVE_BUFFER_ANDROID,
+                                clientBuffer, 0);
+            if (yuvTeximg[yuvIndex].img == EGL_NO_IMAGE_KHR) {
+                ALOGE("%s:line=%d,EGL_NO_IMAGE_KHR",__FUNCTION__,__LINE__);
+                return ;
+            }
+        }
+
+        rgaCopyBit(mActiveBuffer, yuvTeximg[yuvIndex].yuvTexBuffer, mCurrentCrop);
+
+        if (yuvTeximg[yuvIndex].img == EGL_NO_IMAGE_KHR) {
+            ALOGE("%s:line=%d,EGL_NO_IMAGE_KHR",__FUNCTION__,__LINE__);
+            return ;
+        }
+
+        engine.bindyuvimg(yuvTeximg[yuvIndex].img, mTextureName);
+        ALOGV("glEGLImageTargetTexture2DOES,index=%d,img=%p,name=%d",yuvIndex,yuvTeximg[yuvIndex].img,mTextureName);
+    }
+    else
+#endif
+    {
+        err = mSurfaceFlingerConsumer->bindTextureImage();
+    }
     if (err != NO_ERROR) {
         ALOGW("onDraw: bindTextureImage failed (err=%d)", err);
         // Go ahead and draw the buffer anyway; no matter what we do the screen
@@ -1146,8 +1272,6 @@ void Layer::onDraw(const sp<const DisplayDevice>& hw, const Region& clip,
 #if RK_BLACK_NV12_10_LAYER
     blackOutLayer = blackOutLayer || (mActiveBuffer->getPixelFormat()== HAL_PIXEL_FORMAT_YCrCb_NV12_10);
 #endif
-
-    RenderEngine& engine(mFlinger->getRenderEngine());
 
     if (!blackOutLayer) {
         // TODO: we could be more subtle with isFixedSize()
