@@ -1656,7 +1656,7 @@ void SurfaceFlinger::handleTransactionLocked(uint32_t transactionFlags)
                     if (draw[i].type == HWC_DISPLAY_VIRTUAL)
                     {
                         char value[PROPERTY_VALUE_MAX];
-                        property_get("sys.cts_gts.status", value, "0");
+                        property_get("persist.cts_gts.status", value, "0");
                         int IsCTS =  !strcmp(value,"true");
                         if(IsCTS)
                         {
@@ -1740,7 +1740,7 @@ void SurfaceFlinger::handleTransactionLocked(uint32_t transactionFlags)
                         // etc.) but no internal state (i.e. a DisplayDevice).
 #if RK_CTS_GTS
                         char value[PROPERTY_VALUE_MAX];
-                        property_get("sys.cts_gts.status", value, "0");
+                        property_get("persist.cts_gts.status", value, "0");
                         int IsCTS =  !strcmp(value,"true");
                         if(IsCTS)
                         {
