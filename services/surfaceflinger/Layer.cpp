@@ -1153,7 +1153,7 @@ static int rgaCopyBit(sp<GraphicBuffer> src_buf, sp<GraphicBuffer> dst_buf, cons
     dst_r = src_r = rect.right;
     dst_b = src_b = rect.bottom;
     rga_set_rect(&src.rect, src_l, src_t, src_r - src_l, src_b - src_t, src_stride, src_h, src_format);
-    rga_set_rect(&dst.rect, dst_l, dst_t,  4096, dst_b - dst_t, dst_stride, dst_h, dst_format);
+    rga_set_rect(&dst.rect, dst_l, dst_t, dst_buf->getWidth(), dst_buf->getHeight(), dst_stride, dst_h, dst_format);
 
     src.hnd = src_buf->handle;
     dst.hnd = dst_buf->handle;
