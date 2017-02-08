@@ -47,6 +47,7 @@
 #include <cutils/log.h>
 #include <input/Keyboard.h>
 #include <input/VirtualKeyMap.h>
+#include <android/keycodes.h>
 
 #include <inttypes.h>
 #include <stddef.h>
@@ -2280,7 +2281,7 @@ void KeyboardInputMapper::processKey(nsecs_t when, bool down, int32_t scanCode,
 	property_set("sys.ID.mID",mID);
 
 	if (down) {
-	   if (keyCode == 284) {
+	   if (keyCode == AKEYCODE_TV_KEYMOUSE_MODE_SWITCH) {
 		   if (strcmp(mKeyMouseState, "on")==0) {
 			   property_set("sys.KeyMouse.mKeyMouseState", "off");
 		   } else if (strcmp(mKeyMouseState,"off")==0) {
@@ -2359,14 +2360,14 @@ void KeyboardInputMapper::processKey(nsecs_t when, bool down, int32_t scanCode,
     }
     //
     if (strcmp(mKeyMouseState, "on") == 0) {
-        if(keyCode == 21) {
-            keyCode = 280;
-        } else if (keyCode == 22) {
-            keyCode = 281;
-        } else if (keyCode == 19) {
-            keyCode = 282;
-        } else if (keyCode == 20) {
-            keyCode = 283;
+        if(keyCode == AKEYCODE_DPAD_LEFT) {
+            keyCode = AKEYCODE_TV_KEYMOUSE_LEFT;
+        } else if (keyCode == AKEYCODE_DPAD_RIGHT) {
+            keyCode = AKEYCODE_TV_KEYMOUSE_RIGHT;
+        } else if (keyCode == AKEYCODE_DPAD_UP) {
+            keyCode = AKEYCODE_TV_KEYMOUSE_UP;
+        } else if (keyCode == AKEYCODE_DPAD_DOWN) {
+            keyCode = AKEYCODE_TV_KEYMOUSE_DOWN;
         }
     }
 
