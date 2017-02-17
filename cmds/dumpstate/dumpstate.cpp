@@ -890,8 +890,8 @@ static void dumpstate(const std::string& screenshot_path, const std::string& ver
     run_command("NETWORK DIAGNOSTICS", 10, "dumpsys", "-t", "10", "connectivity", "--diag", NULL);
 
 #ifdef FWDUMP_bcmdhd
-    run_command("DUMP WIFI STATUS", 20,
-            SU_PATH, "root", "dhdutil", "-i", "wlan0", "dump", NULL);
+//    run_command("DUMP WIFI STATUS", 20,
+//            SU_PATH, "root", "dhdutil", "-i", "wlan0", "dump", NULL);
 
     run_command("DUMP WIFI INTERNAL COUNTERS (2)", 20,
             SU_PATH, "root", WLUTIL, "counters", NULL);
