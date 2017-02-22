@@ -1225,7 +1225,7 @@ void Layer::onDraw(const sp<const DisplayDevice>& hw, const Region& clip,
         yuvcnt ++;
         yuvIndex = yuvcnt%2;
         //Since rga cann't support scalet to bigger than 4096 limit to 4096
-        uint32_t w = mActiveBuffer->getWidth() > 4096 ? 4096:mActiveBuffer->getWidth();
+        uint32_t w = (mCurrentCrop.getWidth() + 31) & (~31);
 
         if((yuvTeximg[yuvIndex].yuvTexBuffer != NULL) &&
                    (yuvTeximg[yuvIndex].yuvTexBuffer->getWidth() != w ||
