@@ -1114,6 +1114,7 @@ int Surface::setScalingMode(int mode)
         case 300:	// close stereo
         case 301:	// left-right
         case 302:	// up-bottom
+        case 308:	// fps
             break;
 #endif
         default:
@@ -1123,16 +1124,20 @@ int Surface::setScalingMode(int mode)
 
     Mutex::Autolock lock(mMutex);
 #if RK_STEREO
-    if (300 == mode || 301 == mode || 302 == mode) {
+    if (300 == mode || 301 == mode || 302 == mode || 308 == mode) {
         if (300 == mode)
-            mScalingMode &= ~0x300;
+            mScalingMode &= ~0xFF00;
         if (301 == mode) {
-            mScalingMode &= ~0x300;
+            mScalingMode &= ~0xFF00;
             mScalingMode |= 0x100;
         }
         if (302 == mode) {
-            mScalingMode &= ~0x300;
+            mScalingMode &= ~0xFF00;
             mScalingMode |= 0x200;
+        }
+        if (308 == mode) {
+            mScalingMode &= ~0xFF00;
+            mScalingMode |= 0x800;
         }
     } else {
         mScalingMode &= ~0xff;
