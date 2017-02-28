@@ -3495,9 +3495,9 @@ void InputDispatcher::onANRLocked(
 void InputDispatcher::doNotifyConfigurationChangedInterruptible(
         CommandEntry* commandEntry) {
     mLock.unlock();
-
+#ifndef INPUT_BOX
     mPolicy->notifyConfigurationChanged(commandEntry->eventTime);
-
+#endif
     mLock.lock();
 }
 

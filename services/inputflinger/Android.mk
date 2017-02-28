@@ -34,6 +34,9 @@ LOCAL_SHARED_LIBRARIES := \
     libui \
     libhardware_legacy
 
+ifeq ($(strip $(TARGET_BOARD_PLATFORM_PRODUCT)), box)
+LOCAL_CFLAGS += -DINPUT_BOX
+endif
 
 # TODO: Move inputflinger to its own process and mark it hidden
 #LOCAL_CFLAGS += -fvisibility=hidden
