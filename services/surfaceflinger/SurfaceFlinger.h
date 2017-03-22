@@ -61,9 +61,11 @@
 #include "Effects/Daltonizer.h"
 
 
-#define RK_FPS          (1)
-#define RK_WFD_OPT      (1)
-#define RK_CTS_GTS      (1)
+#define RK_FPS          	(1)
+/* Fix video splash bug when rotate video */
+#define RK_DELAY_FOR_CAPTURE 	(1)
+#define RK_WFD_OPT      	(1)
+#define RK_CTS_GTS      	(1)
 
 #include <map>
 #include <string>
@@ -577,6 +579,9 @@ private:
 #if RK_FPS
     //add by rk for fps
     int mDebugFPS;
+#endif
+#if RK_DELAY_FOR_CAPTURE
+    int mDelayFlag;
 #endif
 #endif
 
