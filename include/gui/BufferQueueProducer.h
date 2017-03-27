@@ -29,11 +29,10 @@ class BufferQueueProducer : public BnGraphicBufferProducer,
 public:
     friend class BufferQueue; // Needed to access binderDied
 
-#if RK_VR
+    // for RK_VR
     sp<GraphicBuffer> FbrgraphicBuffer;
     int bufferchanged;
     int test_cnt;
-#endif
 
     BufferQueueProducer(const sp<BufferQueueCore>& core);
     virtual ~BufferQueueProducer();
