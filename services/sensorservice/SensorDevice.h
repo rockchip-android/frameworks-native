@@ -27,6 +27,8 @@
 #include <stdint.h>
 #include <sys/types.h>
 
+#include "MyTransform.h"
+
 // ---------------------------------------------------------------------------
 
 namespace android {
@@ -110,6 +112,17 @@ private:
 
     bool isClientDisabled(void* ident);
     bool isClientDisabledLocked(void* ident);
+
+    /*-------------------------------------------------------*/
+
+    /**
+     * 因为 display_pre_rotation_extension 引入的, 必须对 accel_sensor_event_data 等数据的变换,
+     * 将其 value 变换到 基于 display_saw_by_sf_clients 定义的坐标.
+     */
+    MyTransform mTransformForPreRotation;
+
+    MyTransform::orientation_flags_t getOrientationOfDisplaySawBySfClient();
+    void transformDataFromAcceSensorForPreRotation(sensors_event_t* event);
 };
 
 // ---------------------------------------------------------------------------

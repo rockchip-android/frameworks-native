@@ -18,6 +18,7 @@ LOCAL_SRC_FILES:= \
     SensorRecord.cpp \
     SensorService.cpp \
     SensorServiceUtils.cpp \
+	MyTransform.cpp \
 
 
 LOCAL_CFLAGS:= -DLOG_TAG=\"SensorService\"
@@ -25,6 +26,8 @@ LOCAL_CFLAGS:= -DLOG_TAG=\"SensorService\"
 LOCAL_CFLAGS += -Wall -Werror -Wextra
 
 LOCAL_CFLAGS += -fvisibility=hidden
+
+LOCAL_C_INCLUDES += ./frameworks/native/services/surfaceflinger
 
 LOCAL_SHARED_LIBRARIES := \
     libcutils \
