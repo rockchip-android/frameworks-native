@@ -194,6 +194,26 @@ SurfaceFlinger::SurfaceFlinger()
 
 #if RK_HW_ROTATION
     memset(value,0,PROPERTY_VALUE_MAX);
+
+    /**
+     * .DP : original_display : 
+     *      原始状态的 display, 长度, 高度, orientation 等配置, 由 kernel 层的对应 device 指定. 
+     *
+     * .DP : display_pre_rotation_extension; pre_rotation; pre_rotated_display, display_saw_by_sf_clients :
+     *      display_pre_rotation_extension 是 对 android 框架的扩展, 可以实现对 primary_display 的预旋转 (pre_rotation).  
+     *      pre_rotation 之后, sf(surface_flinger) 的 client (boot_animation, window_manager_service, ...) 看到的 primary_display, 
+     *      将是预旋转之后的 display, 记为 pre_rotated_display 或 display_saw_by_sf_clients. 
+     *      设备开发人员可以通过 属性 "ro.sf.hwrotation", 来配置 pre_rotation 的具体角度, 参见对 property_hwrotation 的说明. 
+     *      本扩展目前仅对 primary_display 有效. 
+     */
+
+    /**
+     * .DP : ro.sf.hwrotation, property_hwrotation : 
+     *      display_pre_rotation_extension 引入的, 系统预定义的 ro property, 定义在文件 /system/build.prop 中. 
+     *      用来描述希望在 original_display 上执行的 预旋转(pre_rotation) 在 顺时针方向上的 角度.
+     *      可能的取值是 0, 90, 180, 270.
+     */
+    // 读取 property_hwrotation, 并设置 orientation_of_pre_rotated_display.
     property_get("ro.sf.hwrotation", value, "0");
     mHardwareOrientation = atoi(value) / 90;
 #endif
@@ -627,7 +647,7 @@ status_t SurfaceFlinger::getDisplayConfigs(const sp<IBinder>& display,
         return BAD_VALUE;
     }
 
-    int32_t type = getDisplayType(display);
+    int32_t type = getDisplayType(display); // current_display_type.
     if (type < 0) return type;
 
 #if RK_HW_ROTATION
@@ -657,11 +677,11 @@ status_t SurfaceFlinger::getDisplayConfigs(const sp<IBinder>& display,
 
     configs->clear();
 
-    const Vector<HWComposer::DisplayConfig>& hwConfigs =
+    const Vector<HWComposer::DisplayConfig>& hwConfigs = // hwc_display_config_list
             getHwComposer().getConfigs(type);
     for (size_t c = 0; c < hwConfigs.size(); ++c) {
-        const HWComposer::DisplayConfig& hwConfig = hwConfigs[c];
-        DisplayInfo info = DisplayInfo();
+        const HWComposer::DisplayConfig& hwConfig = hwConfigs[c]; // current_hwc_display_config
+        DisplayInfo info = DisplayInfo(); // current_display_info
 
         float xdpi = hwConfig.xdpi;
         float ydpi = hwConfig.ydpi;
@@ -692,6 +712,7 @@ status_t SurfaceFlinger::getDisplayConfigs(const sp<IBinder>& display,
             info.orientation = hw->getOrientation();
 
 #if RK_HW_ROTATION
+            /* 若 display_saw_by_sf_clients 和 original_display 的 宽高信息要对调, 则... */
             if (orientationSwap())
             {
                 xdpi = hwc.getDpiY(type);
@@ -1804,7 +1825,7 @@ void SurfaceFlinger::handleTransactionLocked(uint32_t transactionFlags)
                                 display, dispSurface, producer,
                                 mRenderEngine->getEGLConfig()
 #if !RK_VR & RK_HW_ROTATION
-                                , mHardwareOrientation
+                                , 0 // 'hardwareOrientation', 非 primary_display 不涉及 pre_rotation. 
 #endif
                                 );
                         hw->setLayerStack(state.layerStack);
@@ -3792,7 +3813,9 @@ void SurfaceFlinger::renderScreenImplLocked(
             if (state.z >= minLayerZ && state.z <= maxLayerZ) {
                 if (layer->isVisible()) {
                     if (filtering) layer->setFiltering(true);
+                    layer->setDrawingScreenshot(true);
                     layer->draw(hw, useIdentityTransform);
+                    layer->setDrawingScreenshot(false);
                     if (filtering) layer->setFiltering(false);
                 }
             }
