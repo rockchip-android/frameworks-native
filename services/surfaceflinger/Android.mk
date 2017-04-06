@@ -50,11 +50,7 @@ RK_SUPPORT := 1
 
 LOCAL_CFLAGS += -DRK_SUPPORT=$(RK_SUPPORT)
 ifeq ($(RK_SUPPORT),1)
-ifeq ($(strip $(BOARD_USE_DRM)),true)
-RK_STEREO := 0
-else
 RK_STEREO := 1
-endif
 LOCAL_CFLAGS += -DRK_STEREO=$(RK_STEREO)
 
 ifeq ($(strip $(TARGET_BOARD_PLATFORM_PRODUCT)),vr)
