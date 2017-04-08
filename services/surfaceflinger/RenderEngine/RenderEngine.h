@@ -104,6 +104,8 @@ public:
     virtual void setupDimLayerBlending(int alpha) = 0;
 #endif
     virtual void setupLayerTexturing(const Texture& texture) = 0;
+    virtual void setupMRatioTexturing() = 0;
+    virtual void loadMRatioTexturing() = 0;
     virtual void setupLayerBlackedOut() = 0;
     virtual void setupFillWithColor(float r, float g, float b, float a) = 0;
 
@@ -113,6 +115,7 @@ public:
 
     virtual void disableTexturing() = 0;
     virtual void disableBlending() = 0;
+    virtual void setupHdr(bool status) = 0;
 
     // drawing
     virtual void drawMesh(const Mesh& mesh) = 0;

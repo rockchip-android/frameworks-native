@@ -220,6 +220,14 @@ void GLES11RenderEngine::setupLayerTexturing(const Texture& texture) {
     glEnable(GL_TEXTURE_EXTERNAL_OES);
 }
 
+void GLES11RenderEngine::setupMRatioTexturing() {
+
+}
+
+void GLES11RenderEngine::loadMRatioTexturing() {
+
+}
+
 void GLES11RenderEngine::setupLayerBlackedOut() {
     glBindTexture(GL_TEXTURE_2D, mProtectedTexName);
     glMatrixMode(GL_TEXTURE);
@@ -236,6 +244,10 @@ void GLES11RenderEngine::disableTexturing() {
 
 void GLES11RenderEngine::disableBlending() {
     glDisable(GL_BLEND);
+}
+#define UN_USED(arg)  (arg=arg)
+void GLES11RenderEngine::setupHdr(bool status) {
+    UN_USED(status);
 }
 
 void GLES11RenderEngine::bindImageAsFramebuffer(EGLImageKHR image,

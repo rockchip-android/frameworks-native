@@ -63,10 +63,13 @@ protected:
     virtual void setupDimLayerBlending(int alpha);
 #endif
     virtual void setupLayerTexturing(const Texture& texture);
+    virtual void setupMRatioTexturing();
+    virtual void loadMRatioTexturing();
     virtual void setupLayerBlackedOut();
     virtual void setupFillWithColor(float r, float g, float b, float a) ;
     virtual void disableTexturing();
     virtual void disableBlending();
+    virtual void setupHdr(bool status);
 
     virtual void drawMesh(const Mesh& mesh);
     virtual void bindyuvimg(EGLImageKHR image,GLuint name);

@@ -22,6 +22,7 @@
 #include "ProgramCache.h"
 #include "Description.h"
 #include <utils/String8.h>
+#include <cutils/properties.h>
 
 namespace android {
 
@@ -64,6 +65,10 @@ Program::Program(const ProgramCache::Key& /*needs*/, const char* vertex, const c
         mSamplerLoc = glGetUniformLocation(programId, "sampler");
         mColorLoc = glGetUniformLocation(programId, "color");
         mAlphaPlaneLoc = glGetUniformLocation(programId, "alphaPlane");
+
+        mxxx1Loc = glGetUniformLocation(programId, "rockchip_xxx1");
+        mxxx2Loc = glGetUniformLocation(programId, "rockchip_xxx2");
+        while(GL_NO_ERROR != glGetError()); // clear GL_ERROR, because these two Loc variants may lost, but that is correct situation.
 
         // set-up the default values for our uniforms
         glUseProgram(programId);
@@ -140,6 +145,15 @@ void Program::setUniforms(const Description& desc) {
     }
     if (mColorMatrixLoc >= 0) {
         glUniformMatrix4fv(mColorMatrixLoc, 1, GL_FALSE, desc.mColorMatrix.asArray());
+    }
+    if (mxxx1Loc >= 0){
+        glUniform1i(mxxx1Loc, 1); // GL_TEXTURE1
+    }
+    if (mxxx2Loc >= 0){
+        char value[PROPERTY_VALUE_MAX];
+        property_get("sys.xxx.rock", value, "2.3");
+        float xxx2 = atof(value);
+        glUniform1f(mxxx2Loc, xxx2);
     }
     // these uniforms are always present
     glUniformMatrix4fv(mProjectionMatrixLoc, 1, GL_FALSE, desc.mProjectionMatrix.asArray());

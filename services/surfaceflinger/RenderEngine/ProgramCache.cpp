@@ -23,6 +23,13 @@
 #include "Program.h"
 #include "Description.h"
 
+const char FRAG_SHADER[] = {
+#include "frag_hdr2sdr.h"
+};
+
+const char VERT_SHADER[] = {
+#include "vert_hdr2sdr.h"
+};
 namespace android {
 // -----------------------------------------------------------------------------------------------
 
@@ -129,12 +136,19 @@ ProgramCache::Key ProgramCache::computeKey(const Description& description) {
     .set(Key::OPACITY_MASK,
             description.mOpaque ? Key::OPACITY_OPAQUE : Key::OPACITY_TRANSLUCENT)
     .set(Key::COLOR_MATRIX_MASK,
-            description.mColorMatrixEnabled ? Key::COLOR_MATRIX_ON :  Key::COLOR_MATRIX_OFF);
+            description.mColorMatrixEnabled ? Key::COLOR_MATRIX_ON :  Key::COLOR_MATRIX_OFF)
+			.set(Key::HDR_MASK,
+            description.mHdr ? Key::HDR_ON :  Key::HDR_OFF);
     return needs;
 }
 
 String8 ProgramCache::generateVertexShader(const Key& needs) {
     Formatter vs;
+
+    if(needs.hasHdr()){
+        return String8(VERT_SHADER);
+    }
+
     if (needs.isTexturing()) {
         vs  << "attribute vec4 texCoords;"
             << "varying vec2 outTexCoords;";
@@ -148,11 +162,17 @@ String8 ProgramCache::generateVertexShader(const Key& needs) {
         vs << "outTexCoords = (texture * texCoords).st;";
     }
     vs << dedent << "}";
+
     return vs.getString();
 }
 
 String8 ProgramCache::generateFragmentShader(const Key& needs) {
     Formatter fs;
+
+    if(needs.hasHdr()){
+        return String8(FRAG_SHADER);
+    }
+
     if (needs.getTextureTarget() == Key::TEXTURE_EXT) {
         fs << "#extension GL_OES_EGL_image_external : require";
     }
@@ -208,6 +228,7 @@ String8 ProgramCache::generateFragmentShader(const Key& needs) {
     }
 
     fs << dedent << "}";
+
     return fs.getString();
 }
 

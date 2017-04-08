@@ -84,6 +84,10 @@ private:
 
     /* location of the color uniform */
     GLint mColorLoc;
+
+    GLint mxxx1Loc;
+
+    GLint mxxx2Loc;
 };
 
 

@@ -65,6 +65,10 @@ void Description::setTexture(const Texture& texture) {
     mUniformsDirty = true;
 }
 
+void Description::setMRatioTexture(const Texture& texture) {
+    mMRatioTexture = texture;
+}
+
 void Description::disableTexture() {
     mTextureEnabled = false;
 }
@@ -91,6 +95,8 @@ void Description::setColorMatrix(const mat4& mtx) {
 const mat4& Description::getColorMatrix() const {
     return mColorMatrix;
 }
-
+void Description::setHdr(bool deformstus ) {
+    mHdr = deformstus;
+}
 
 } /* namespace android */

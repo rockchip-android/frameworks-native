@@ -56,6 +56,8 @@ class GLES20RenderEngine : public RenderEngine {
     };
 
     Description mState;
+    Texture mMRatioTexture;
+    uint32_t mMRatioTextureName;      // from GLES
     Vector<Group> mGroupStack;
 
     virtual void bindImageAsFramebuffer(EGLImageKHR image,
@@ -83,11 +85,14 @@ protected:
     virtual void setupDimLayerBlending(int alpha);
 #endif
     virtual void setupLayerTexturing(const Texture& texture);
+	virtual void setupMRatioTexturing();
+	virtual void loadMRatioTexturing();
     virtual void setupLayerBlackedOut();
     virtual void setupFillWithColor(float r, float g, float b, float a);
     virtual mat4 setupColorTransform(const mat4& colorTransform);
     virtual void disableTexturing();
     virtual void disableBlending();
+    virtual void setupHdr(bool status);
 
     virtual void drawMesh(const Mesh& mesh);
 

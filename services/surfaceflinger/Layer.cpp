@@ -56,14 +56,17 @@
 #include "RenderEngine/RenderEngine.h"
 
 #include <mutex>
-#if RK_NV12_10_TO_NV12
+#if RK_NV12_10_TO_NV12_BY_RGA
 #define UN_NEED_GL
 #include <RockchipRga.h>
+#endif
+#if (RK_NV12_10_TO_NV12_BY_NENO | RK_HDR)
+#include <dlfcn.h>
 #endif
 #define DEBUG_RESIZE    0
 
 namespace android {
-#if RK_NV12_10_TO_NV12
+#if (RK_NV12_10_TO_NV12_BY_RGA | RK_NV12_10_TO_NV12_BY_NENO | RK_HDR)
 typedef struct
 {
      sp<GraphicBuffer> yuvTexBuffer;
@@ -1115,7 +1118,7 @@ void Layer::draw(const sp<const DisplayDevice>& hw) const {
     onDraw(hw, Region(hw->bounds()), false);
 }
 
-#if RK_NV12_10_TO_NV12
+#if (RK_NV12_10_TO_NV12_BY_RGA | RK_NV12_10_TO_NV12_BY_NENO | RK_HDR)
 /* print time macros. */
 #define PRINT_TIME_START        \
     struct timeval tpend1, tpend2;\
@@ -1128,6 +1131,7 @@ void Layer::draw(const sp<const DisplayDevice>& hw) const {
     if (property_get_bool("sys.hwc.time", 1)) \
     ALOGD_IF(1,"%s use time=%ld ms",tag,usec1);\
 
+ #if RK_NV12_10_TO_NV12_BY_RGA
 static int rgaCopyBit(sp<GraphicBuffer> src_buf, sp<GraphicBuffer> dst_buf, const Rect& rect)
 {
     rga_info_t src, dst;
@@ -1175,6 +1179,37 @@ static int rgaCopyBit(sp<GraphicBuffer> src_buf, sp<GraphicBuffer> dst_buf, cons
 }
 #endif
 
+#endif
+
+#if RK_HDR
+typedef unsigned char u8;
+typedef unsigned short u16;
+typedef unsigned int u32;
+typedef signed char s8;
+typedef signed short s16;
+typedef signed int s32;
+#define ARM_P010            0x4000000
+#define HDRUSAGE            0x3000000
+#define RK_XXX_PATH         "/system/lib64/librockchipxxx.so"
+typedef void (*__rockchipxxx)(u8 *src, u8 *dst, int w, int h, int srcStride, int dstStride, int area);
+
+static void* dso = NULL;
+static __rockchipxxx rockchipxxx = NULL;
+
+#elif RK_NV12_10_TO_NV12_BY_NENO
+
+typedef unsigned char u8;
+typedef unsigned short u16;
+typedef unsigned int u32;
+typedef signed char s8;
+typedef signed short s16;
+typedef signed int s32;
+#define RK_XXX_PATH         "/system/lib/librockchipxxx.so"
+typedef void (*__rockchipxxx3288)(u8 *src, u8 *dst, int w, int h, int srcStride, int dstStride, int area);
+
+static void* dso = NULL;
+static __rockchipxxx3288 rockchipxxx3288 = NULL;
+#endif
 
 void Layer::onDraw(const sp<const DisplayDevice>& hw, const Region& clip,
         bool useIdentityTransform) const
@@ -1213,21 +1248,35 @@ void Layer::onDraw(const sp<const DisplayDevice>& hw, const Region& clip,
     // Bind the current buffer to the GL texture, and wait for it to be
     // ready for us to draw into.
     status_t err = NO_ERROR;
-#if RK_NV12_10_TO_NV12
+#if (RK_NV12_10_TO_NV12_BY_RGA | RK_NV12_10_TO_NV12_BY_NENO | RK_HDR)
     if(mActiveBuffer != NULL &&
        mActiveBuffer->getPixelFormat() == HAL_PIXEL_FORMAT_YCrCb_NV12_10 )
     {
-        const int yuvTexUsage = GraphicBuffer::USAGE_HW_TEXTURE /*| HDRUSAGE*/;
-        //GraphicBuffer::USAGE_SW_WRITE_RARELY;
+#if RK_HDR
+        const int yuvTexUsage = GraphicBuffer::USAGE_HW_TEXTURE | ARM_P010;
+        const int yuvTexFormat = HAL_PIXEL_FORMAT_YCrCb_NV12_10;
+#elif (RK_NV12_10_TO_NV12_BY_NENO | RK_NV12_10_TO_NV12_BY_RGA)
+        const int yuvTexUsage = GraphicBuffer::USAGE_HW_TEXTURE;
         const int yuvTexFormat = HAL_PIXEL_FORMAT_YCrCb_NV12;
-
+#endif
         static int yuvcnt;
         int yuvIndex ;
         yuvcnt ++;
         yuvIndex = yuvcnt%2;
+#if (RK_HDR | RK_NV12_10_TO_NV12_BY_NENO)
+        int src_l,src_t,src_r,src_b,src_stride;
+        void *src_vaddr;
+        void *dst_vaddr;
+        src_l = mCurrentCrop.left;
+        src_t = mCurrentCrop.top;
+        src_r = mCurrentCrop.right;
+        src_b = mCurrentCrop.bottom;
+        src_stride = mActiveBuffer->getStride();
+        uint32_t w = src_r - src_l;
+#elif RK_NV12_10_TO_NV12_BY_RGA
         //Since rga cann't support scalet to bigger than 4096 limit to 4096
         uint32_t w = (mCurrentCrop.getWidth() + 31) & (~31);
-
+#endif
         if((yuvTeximg[yuvIndex].yuvTexBuffer != NULL) &&
                    (yuvTeximg[yuvIndex].yuvTexBuffer->getWidth() != w ||
                     yuvTeximg[yuvIndex].yuvTexBuffer->getHeight() != mActiveBuffer->getHeight()))
@@ -1248,8 +1297,73 @@ void Layer::onDraw(const sp<const DisplayDevice>& hw, const Region& clip,
             }
         }
 
-        rgaCopyBit(mActiveBuffer, yuvTeximg[yuvIndex].yuvTexBuffer, mCurrentCrop);
+#if (RK_HDR | RK_NV12_10_TO_NV12_BY_NENO)
+        mActiveBuffer->lock(GRALLOC_USAGE_SW_READ_OFTEN,&src_vaddr);
+        yuvTeximg[yuvIndex].yuvTexBuffer->lock(GRALLOC_USAGE_SW_WRITE_OFTEN,&dst_vaddr);
 
+        //PRINT_TIME_START
+        if(dso == NULL)
+            dso = dlopen(RK_XXX_PATH, RTLD_NOW | RTLD_LOCAL);
+
+        if (dso == 0) {
+            ALOGE("rk_debug can't not find /system/lib64/librockchipxxx.so ! error=%s \n",
+                dlerror());
+            return;
+        }
+#if RK_HDR
+        if(rockchipxxx == NULL)
+            rockchipxxx = (__rockchipxxx)dlsym(dso, "_Z11rockchipxxxPhS_iiiii");
+        if(rockchipxxx == NULL)
+        {
+            ALOGE("rk_debug can't not find target function in /system/lib64/librockchipxxx.so ! \n");
+            dlclose(dso);
+            return;
+        }
+        rockchipxxx((u8*)src_vaddr, (u8*)dst_vaddr, src_r - src_l, src_b - src_t, src_stride, (src_r - src_l)*2, 0);
+#elif RK_NV12_10_TO_NV12_BY_NENO
+        if(rockchipxxx3288 == NULL)
+            rockchipxxx3288 = (__rockchipxxx3288)dlsym(dso, "_Z15rockchipxxx3288PhS_iiiii");
+        if(rockchipxxx3288 == NULL)
+        {
+            ALOGE("rk_debug can't not find target function in /system/lib64/librockchipxxx.so ! \n");
+            dlclose(dso);
+            return;
+        }
+        rockchipxxx3288((u8*)src_vaddr, (u8*)dst_vaddr, src_r - src_l, src_b - src_t, src_stride, (src_r - src_l), 0);
+#endif
+        //PRINT_TIME_END("convert10to16_highbit_arm64_neon")
+        ALOGV("src_vaddr=%p,dst_vaddr=%p,crop_w=%d,crop_h=%d,stride=%f, src_stride=%d,raw_w=%d,raw_h=%d",
+                src_vaddr, dst_vaddr, src_r - src_l,src_b - src_t,
+                (src_r - src_l)*1.25+64,src_stride,mActiveBuffer->getWidth(),mActiveBuffer->getHeight());
+    //dump data
+    static int i =0;
+    char pro_value[PROPERTY_VALUE_MAX];
+
+    property_get("sys.dump_out_neon",pro_value,0);
+    if(i<10 && !strcmp(pro_value,"true"))
+    {
+        char data_name[100];
+
+        sprintf(data_name,"/data/dump/dmlayer%d_%d_%d.bin", i,
+                yuvTeximg[yuvIndex].yuvTexBuffer->getWidth(),yuvTeximg[yuvIndex].yuvTexBuffer->getHeight());
+#if RK_HDR
+        int n = yuvTeximg[yuvIndex].yuvTexBuffer->getHeight() * yuvTeximg[yuvIndex].yuvTexBuffer->getStride();
+#else
+        int n = yuvTeximg[yuvIndex].yuvTexBuffer->getHeight() * yuvTeximg[yuvIndex].yuvTexBuffer->getStride() * 1.5;
+#endif
+        ALOGD("dump %s size=%d", data_name, n );
+        FILE *fp;
+        if ((fp = fopen(data_name, "w+")) == NULL)
+        {
+            printf("can't open output.bin!!!!!\n");
+        }
+        fwrite(dst_vaddr, n, 1, fp);
+        fclose(fp);
+        i++;
+    }
+#elif RK_NV12_10_TO_NV12_BY_RGA
+        rgaCopyBit(mActiveBuffer, yuvTeximg[yuvIndex].yuvTexBuffer, mCurrentCrop);
+#endif
         if (yuvTeximg[yuvIndex].img == EGL_NO_IMAGE_KHR) {
             ALOGE("%s:line=%d,EGL_NO_IMAGE_KHR",__FUNCTION__,__LINE__);
             return ;
@@ -1510,6 +1624,15 @@ void Layer::drawWithOpenGL(const sp<const DisplayDevice>& hw,
 
     RenderEngine& engine(mFlinger->getRenderEngine());
     engine.setupLayerBlending(mPremultipliedAlpha, isOpaque(s), s.alpha);
+
+#if RK_HDR
+    if(mActiveBuffer->getPixelFormat() == HAL_PIXEL_FORMAT_YCrCb_NV12_10
+        && (mActiveBuffer->getUsage() & HDRUSAGE)) {
+        engine.setupHdr(true);
+        engine.setupMRatioTexturing();
+    }
+#endif
+
 #if RK_VR
     setStereoDrawVR(hw, engine, mMesh,
         mSurfaceFlingerConsumer->getAlreadyStereo()/*getStereoModeToDraw()*/, displayStereo);
@@ -1520,6 +1643,9 @@ void Layer::drawWithOpenGL(const sp<const DisplayDevice>& hw,
 
     engine.drawMesh(mMesh);
     engine.disableBlending();
+#if RK_HDR
+    engine.setupHdr(false);
+#endif
 }
 
 #ifdef USE_HWC2
