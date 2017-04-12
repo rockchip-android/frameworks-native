@@ -25,6 +25,7 @@
 <permissions>
     <feature name="android.hardware.audio.output" />
     <feature name="android.hardware.microphone" />
+    <feature name="android.hardware.opengles.aep" />
     <feature name="android.hardware.screen.portrait" />
     <feature name="android.hardware.screen.landscape" />
 

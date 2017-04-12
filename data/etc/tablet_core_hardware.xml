@@ -33,6 +33,7 @@
     <feature name="android.hardware.touchscreen.multitouch.jazzhand" />
     <feature name="android.hardware.faketouch" />
     <feature name="android.hardware.microphone" />
+    <feature name="android.hardware.opengles.aep" />
     <feature name="android.hardware.screen.portrait" />
     <feature name="android.hardware.screen.landscape" />
 
