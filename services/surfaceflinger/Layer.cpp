@@ -2262,18 +2262,6 @@ bool Layer::setSize(uint32_t w, uint32_t h) {
         return false;
     mCurrentState.requested.w = w;
     mCurrentState.requested.h = h;
-    sp<const DisplayDevice> hw = mFlinger->getDefaultDisplayDevice();
-
-    //rk: add by hds to fix show half of ImageWallpaper bug.
-    if(!strcmp(getName().string(),"com.android.systemui.ImageWallpaper"))
-    {
-        if(w <= (uint32_t) (hw->getWidth()))
-        {
-            mCurrentState.requested.w = 1;
-            mCurrentState.requested.h = 1;
-        }
-    }
-
     mCurrentState.modified = true;
     setTransactionFlags(eTransactionNeeded);
     return true;
