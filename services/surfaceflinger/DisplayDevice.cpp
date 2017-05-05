@@ -612,6 +612,11 @@ void DisplayDevice::setProjection(int orientation,
         // the destination frame can be invalid if it has never been set,
         // in that case we assume the whole display frame.
         frame = Rect(w, h);
+        if (R.getOrientation() & Transform::ROT_90) {
+            // wzq:frame is always specified in the logical orientation
+            // of the display (ie: post-rotation).
+            swap(frame.right, frame.bottom);
+        }
     }
 
     if (viewport.isEmpty()) {
