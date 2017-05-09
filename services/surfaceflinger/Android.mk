@@ -107,6 +107,7 @@ RK_HDR = 0
 endif
 endif
 else
+RK_HDR = 0
 RK_USE_DRM = 0
 RK_USE_3_FB = 0
 ifeq ($(strip $(TARGET_BOARD_PLATFORM)),rk3328)
