@@ -527,7 +527,11 @@ void DisplayDevice::setProjection(int orientation,
     ALOGV(" hw [%d %d]", getWidth(),getHeight());
 
     bool isVirtualScreen = mType == DisplayDevice::DISPLAY_VIRTUAL;
-    if (isVirtualScreen && frame.getWidth() > frame.getHeight()) {
+    if ((isVirtualScreen && frame.getWidth() > frame.getHeight()) ||
+        (mViewport.getWidth()== getWidth() && mViewport.getHeight() == getHeight()
+         && (getWidth() != frame.getWidth() || getHeight() != frame.getHeight()))
+        ) {
+        //If change the resolution,force scale to full screen.
         frame = Rect(0,0,getWidth(),getHeight());
         ALOGV("update frame [%d,%d]",frame.getWidth(),frame.getHeight());
     }
