@@ -522,13 +522,13 @@ void DisplayDevice::setProjection(int orientation,
 
 #if RK_FORCE_SCALE_FULLSCREEN
     ALOGV("name =%s",getDisplayName().string());
-    ALOGV(" viewport [%d %d]",mViewport.getWidth(),mViewport.getHeight());
+    ALOGV(" viewport [%d %d] mViewport [%d %d]",viewport.getWidth(),viewport.getHeight(),mViewport.getWidth(),mViewport.getHeight());
     ALOGV(" frame [%d %d]", frame.getWidth(),frame.getHeight());
     ALOGV(" hw [%d %d]", getWidth(),getHeight());
 
     bool isVirtualScreen = mType == DisplayDevice::DISPLAY_VIRTUAL;
     if ((isVirtualScreen && frame.getWidth() > frame.getHeight()) ||
-        (mViewport.getWidth()== getWidth() && mViewport.getHeight() == getHeight()
+        (viewport.getWidth()== getWidth() && viewport.getHeight() == getHeight()
          && (getWidth() != frame.getWidth() || getHeight() != frame.getHeight()))
         ) {
         //If change the resolution,force scale to full screen.
