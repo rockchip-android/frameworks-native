@@ -139,10 +139,10 @@ public:
     virtual sp<IBinder> getService(const String16& name) const
     {
         unsigned n;
-        for (n = 0; n < 5; n++){
+        for (n = 0; n < 100; n++){
             if (n > 0) {
                 ALOGI("Waiting for service %s...", String8(name).string());
-                sleep(1);
+                usleep(50000);
             }
             sp<IBinder> svc = checkService(name);
             if (svc != NULL) return svc;
