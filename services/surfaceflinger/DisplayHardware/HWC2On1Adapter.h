@@ -568,6 +568,7 @@ private:
             LatchedState<hwc_frect_t> mSourceCrop;
             LatchedState<HWC2::Transform> mTransform;
             LatchedState<std::vector<hwc_rect_t>> mVisibleRegion;
+            LatchedState<android_dataspace_t> mDataSpace;
             uint32_t mZ;
 
             DeferredFence mReleaseFence;

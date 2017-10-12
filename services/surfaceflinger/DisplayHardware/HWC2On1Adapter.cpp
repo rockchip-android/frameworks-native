@@ -1986,6 +1986,7 @@ HWC2On1Adapter::Layer::Layer(Display& display)
     mSourceCrop(*this, {0.0f, 0.0f, -1.0f, -1.0f}),
     mTransform(*this, Transform::None),
     mVisibleRegion(*this, std::vector<hwc_rect_t>()),
+    mDataSpace(*this, HAL_DATASPACE_UNKNOWN),
     mZ(0),
     mReleaseFence(),
     mHwc1Id(0),
@@ -2052,6 +2053,7 @@ Error HWC2On1Adapter::Layer::setCompositionType(Composition type)
 
 Error HWC2On1Adapter::Layer::setDataspace(android_dataspace_t dataspace)
 {
+    mDataSpace.setPending(dataspace);
     mHasUnsupportedDataspace = (dataspace != HAL_DATASPACE_UNKNOWN);
     return Error::None;
 }
@@ -2185,6 +2187,12 @@ std::string HWC2On1Adapter::Layer::dump() const
         } else {
             output << '\n';
         }
+        if (mDataSpace.getValue() != HAL_DATASPACE_UNKNOWN) {
+            output << "  DataSpace: " <<
+                mDataSpace.getValue() << '\n';
+        } else {
+            output << '\n';
+        }
         output << regionStrings(mVisibleRegion.getValue(), mSurfaceDamage);
     }
     return output.str();
@@ -2210,6 +2218,14 @@ void HWC2On1Adapter::Layer::applyCommonState(hwc_layer_1_t& hwc1Layer,
     if (applyAllState || mDisplayFrame.isDirty()) {
         hwc1Layer.displayFrame = mDisplayFrame.getPendingValue();
         mDisplayFrame.latch();
+    }
+    if (applyAllState || mDataSpace.isDirty()) {
+        auto pendingDataSpace = mDataSpace.getPendingValue();
+        hwc1Layer.reserved[0] = pendingDataSpace & (0xFF << 0);
+        hwc1Layer.reserved[1] = pendingDataSpace & (0xFF << 2);
+        hwc1Layer.reserved[2] = pendingDataSpace & (0xFF << 4);
+        hwc1Layer.reserved[3] = pendingDataSpace & (0xFF << 6);
+        mDataSpace.latch();
     }
     if (applyAllState || mPlaneAlpha.isDirty()) {
         auto pendingAlpha = mPlaneAlpha.getPendingValue();
@@ -2287,7 +2303,7 @@ void HWC2On1Adapter::Layer::applyCompositionType(hwc_layer_1_t& hwc1Layer,
     // HWC1 never supports color transforms or dataspaces and only sometimes
     // supports plane alpha (depending on the version). These require us to drop
     // some or all layers to client composition.
-    if (mHasUnsupportedDataspace || mHasUnsupportedPlaneAlpha ||
+    if (/*mHasUnsupportedDataspace ||*/ mHasUnsupportedPlaneAlpha ||
             mDisplay.hasColorTransform()) {
         hwc1Layer.compositionType = HWC_FRAMEBUFFER;
         hwc1Layer.flags = HWC_SKIP_LAYER;
