@@ -2221,10 +2221,10 @@ void HWC2On1Adapter::Layer::applyCommonState(hwc_layer_1_t& hwc1Layer,
     }
     if (applyAllState || mDataSpace.isDirty()) {
         auto pendingDataSpace = mDataSpace.getPendingValue();
-        hwc1Layer.reserved[0] = pendingDataSpace & (0xFF << 0);
-        hwc1Layer.reserved[1] = pendingDataSpace & (0xFF << 2);
-        hwc1Layer.reserved[2] = pendingDataSpace & (0xFF << 4);
-        hwc1Layer.reserved[3] = pendingDataSpace & (0xFF << 6);
+        hwc1Layer.reserved[0] = pendingDataSpace & 0xFF;
+        hwc1Layer.reserved[1] = (pendingDataSpace >> 8) & 0xFF;
+        hwc1Layer.reserved[2] = (pendingDataSpace >> 16) & 0xFF;
+        hwc1Layer.reserved[3] = (pendingDataSpace >> 24) & 0xFF;
         mDataSpace.latch();
     }
     if (applyAllState || mPlaneAlpha.isDirty()) {

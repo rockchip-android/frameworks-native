@@ -1059,6 +1059,13 @@ public:
         getLayer()->displayStereo = 0;
     }
 #endif
+    virtual void setDataspace(android_dataspace_t dataspace) {
+        getLayer()->reserved[0] = dataspace & 0xFF;
+        getLayer()->reserved[1] = (dataspace >> 8) & 0xFF;
+        getLayer()->reserved[2] = (dataspace >> 16) & 0xFF;
+        getLayer()->reserved[3] = (dataspace >> 24) & 0xFF;
+    }
+
     virtual void setDefaultState() {
         hwc_layer_1_t* const l = getLayer();
         l->compositionType = HWC_FRAMEBUFFER;
@@ -1072,6 +1079,10 @@ public:
         l->acquireFenceFd = -1;
         l->releaseFenceFd = -1;
         l->planeAlpha = 0xFF;
+        l->reserved[0] = 0;
+        l->reserved[1] = 0;
+        l->reserved[2] = 0;
+        l->reserved[3] = 0;
     }
     virtual void setSkip(bool skip) {
         if (skip) {

@@ -200,6 +200,7 @@ public:
         virtual int32_t getDisplayStereo() const = 0;
         virtual void initDisplayStereo() = 0;
 #endif
+	virtual void setDataspace(android_dataspace_t dataspace);
     };
 
     /*

@@ -980,6 +980,10 @@ void Layer::setPerFrameData(const sp<const DisplayDevice>& hw,
     layer.setAlreadyStereo(mSurfaceFlingerConsumer->getAlreadyStereo());
     layer.initDisplayStereo();
 #endif
+
+    //add this for hwc1 hdr feature.
+    ALOGV("setPerFrameData: dataspace = %d", mCurrentState.dataSpace);
+    layer.setDataspace(mCurrentState.dataSpace);
 }
 #endif
 
