@@ -82,6 +82,11 @@
 #include "RenderEngine/RenderEngine.h"
 #include <cutils/compiler.h>
 
+#if defined(EECOLOR)
+#include "eeColorAPI/eeColorAPI.h"
+extern eeColor::APIFunctions gEEColorAPIFunctions;
+#endif
+
 #define DISPLAY_COUNT       1
 
 /*
@@ -3519,6 +3524,49 @@ status_t SurfaceFlinger::onTransact(
                 mUseHwcVirtualDisplays = !n;
                 return NO_ERROR;
             }
+#if defined(EECOLOR)
+						case 10000:
+						{
+							__android_log_close();
+							//ALOGD("eeColorAPI case 10000: pEnableEEColor");
+							gEEColorAPIFunctions.pEnableEEColor(data.readInt32() == 1);
+
+							return NO_ERROR;
+						}
+						case 10001:
+						{
+							__android_log_close();
+							//ALOGD("eeColorAPI case 10001: pReadTable");
+
+							int index = data.readInt32();
+							int bytes = data.readInt32();
+							std::vector<int32_t> dataVector;
+							dataVector.reserve(bytes);
+							status_t iRet = data.readInt32Vector(&dataVector);
+							if (iRet == 0)
+							{
+								gEEColorAPIFunctions.pReadTable(index, bytes, dataVector);
+							}
+							else
+							{
+								ALOGE("  %d: Error reading %d bytes", index, bytes);
+							}
+
+							return NO_ERROR;
+						}
+						case 10002:
+						{
+							__android_log_close();
+							//ALOGD("eeColorAPI case 10002: pSetTableType");
+							gEEColorAPIFunctions.pSetTableType(data.readInt32());
+							return NO_ERROR;
+						}
+						case 20000:
+						{
+							reply->writeInt32(gEEColorAPIFunctions.pIsEEColorEnabled() ? 1 : 0);
+							return NO_ERROR;
+						}
+#endif
         }
     }
     return err;

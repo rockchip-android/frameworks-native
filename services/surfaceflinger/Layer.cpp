@@ -65,6 +65,13 @@
 #endif
 #define DEBUG_RESIZE    0
 
+#if defined(EECOLOR)
+#include "eeColorAPI/eeColorAPI.h"
+extern eeColor::APIFunctions gEEColorAPIFunctions;
+
+bool gbUseEEColorShader = false;
+#endif
+
 namespace android {
 #if (RK_NV12_10_TO_NV12_BY_RGA | RK_NV12_10_TO_NV12_BY_NENO | RK_HDR)
 typedef struct
@@ -1227,6 +1234,21 @@ static __rockchipxxx3288 rockchipxxx3288 = NULL;
 void Layer::onDraw(const sp<const DisplayDevice>& hw, const Region& clip,
         bool useIdentityTransform) const
 {
+#if 0 //defined(EECOLOR)
+	// system\core\include\system\graphics.h
+	bool bHDR = mActiveBuffer != NULL && mActiveBuffer->getUsage() & HDRUSAGE;
+	if (mActiveBuffer->getPixelFormat() >= HAL_PIXEL_FORMAT_YCbCr_422_SP)
+	{
+		__android_log_close();
+		char szValue[PROP_VALUE_MAX + 1] = {0};
+		__system_property_get("sys.video.hdr_mode", szValue);
+		//ALOGD("%s bHDR: %u PixelFormat: %d %d sys.video.hdr_mode: %s", mName.string(), bHDR, mActiveBuffer->getPixelFormat(), mFormat, szValue);
+
+		// DT: TEMP App needs to turn this on/off when video starts/stops
+		__system_property_set("sys.video.hdr_mode", mActiveBuffer->getUsage() & HDRUSAGE ? "hdr_effect" : "sdr_effect");
+	}
+#endif
+
     ATRACE_CALL();
     RenderEngine& engine(mFlinger->getRenderEngine());
 
@@ -1654,7 +1676,18 @@ void Layer::drawWithOpenGL(const sp<const DisplayDevice>& hw,
         mSurfaceFlingerConsumer->getAlreadyStereo(), displayStereo);
 #endif
 
+#if defined(EECOLOR)
+		if (mActiveBuffer->getUsage() & HDRUSAGE)
+		{
+			gbUseEEColorShader = true;
+		}
+#endif
+
     engine.drawMesh(mMesh);
+
+#if defined(EECOLOR)
+		gbUseEEColorShader = false;
+#endif
     engine.disableBlending();
 #if RK_HDR
     engine.setupHdr(false);

@@ -85,9 +85,11 @@ private:
     /* location of the color uniform */
     GLint mColorLoc;
 
+#if !defined(EECOLOR)
     GLint mxxx1Loc;
 
     GLint mxxx2Loc;
+#endif
 };
 
 

@@ -30,6 +30,105 @@ const char FRAG_SHADER[] = {
 const char VERT_SHADER[] = {
 #include "vert_hdr2sdr.h"
 };
+
+#if defined(EECOLOR)
+
+#include <dlfcn.h>
+
+#include "eeColorAPI/eeColorAPI.h"
+eeColor::APIFunctions gEEColorAPIFunctions;
+
+#if ARCH_32
+	#define EECOLOR_PATH "/system/lib/libeecolorapi.so"
+#else
+	#define EECOLOR_PATH "/system/lib64/libeecolorapi.so"
+#endif
+
+void eeColorCallback()
+{
+	__android_log_close();
+	ALOGD("eeColorAPI eeColorCallback()");
+
+	void* mDso = dlopen(EECOLOR_PATH, RTLD_NOW | RTLD_LOCAL);
+
+	if (mDso == NULL)
+	{
+		ALOGE("eeColorAPI Callback can't not find /system/lib64/libeecolorapi.so ! error=%s \n",
+					dlerror());
+		return;
+
+	}
+
+	gEEColorAPIFunctions.pCompileShaders = (__CompileShaders)dlsym(mDso, eeColor::COMPILE_SHADERS_MANGLED);
+	if (gEEColorAPIFunctions.pCompileShaders == NULL)
+	{
+		ALOGE("eeColorAPI cann't find pCompileShaders");
+		dlclose(mDso);
+		return;
+	}
+
+
+	gEEColorAPIFunctions.pReadTable = (__ReadTable)dlsym(mDso, eeColor::READ_TABLE_MANGLED);
+	if (gEEColorAPIFunctions.pReadTable == NULL)
+	{
+		ALOGE("eeColorAPI cann't find pReadTable");
+		dlclose(mDso);
+		return;
+	}
+
+	gEEColorAPIFunctions.pEnableEEColor = (__EnableEEColor)dlsym(mDso, eeColor::ENABLE_EECOLOR_MANGLED);
+	if (gEEColorAPIFunctions.pEnableEEColor == NULL)
+	{
+		ALOGE("eeColorAPI cann't find pEnableEEColor");
+		dlclose(mDso);
+		return;
+	}
+
+	gEEColorAPIFunctions.pIsEEColorEnabled = (__IsEEColorEnabled)dlsym(mDso, eeColor::IS_EECOLOR_ENABLED_MANGLED);
+	if (gEEColorAPIFunctions.pIsEEColorEnabled == NULL)
+	{
+		ALOGE("eeColorAPI cann't find pIsEEColorEnabled");
+		dlclose(mDso);
+		return;
+	}
+
+	gEEColorAPIFunctions.pSetTableType = (__SetTableType)dlsym(mDso, eeColor::SET_TABLE_TYPE_MANGLED);
+	if (gEEColorAPIFunctions.pSetTableType == NULL)
+	{
+		ALOGE("eeColorAPI cann't find pSetTableType");
+		dlclose(mDso);
+		return;
+	}
+
+	gEEColorAPIFunctions.pGetTableType = (__GetTableType)dlsym(mDso, eeColor::GET_TABLE_TYPE_MANGLED);
+	if (gEEColorAPIFunctions.pGetTableType == NULL)
+	{
+		ALOGE("eeColorAPI cann't find pGetTableType");
+		dlclose(mDso);
+		return;
+	}
+
+	gEEColorAPIFunctions.pUseProgram = (__UseProgram)dlsym(mDso, eeColor::USE_PROGRAM_MANGLED);
+	if (gEEColorAPIFunctions.pUseProgram == NULL)
+	{
+		ALOGE("eeColorAPI cann't find pUseProgram");
+		dlclose(mDso);
+		return;
+	}
+
+	gEEColorAPIFunctions.pSetUniforms = (__SetUniforms)dlsym(mDso, eeColor::SET_UNIFORMS_MANGLED);
+	if (gEEColorAPIFunctions.pSetUniforms == NULL)
+	{
+		ALOGE("eeColorAPI cann't find pSetUniforms");
+		dlclose(mDso);
+		return;
+	}
+
+	ALOGD("eeColorAPI Open success");
+}
+
+#endif // EECOLOR
+
 namespace android {
 // -----------------------------------------------------------------------------------------------
 
@@ -94,6 +193,20 @@ ProgramCache::~ProgramCache() {
 }
 
 void ProgramCache::primeCache() {
+#if defined(EECOLOR)
+	static bool bDoneOnce = false;
+	if (!bDoneOnce)
+	{
+		bDoneOnce = true;
+
+		eeColorCallback();
+
+		__android_log_close();
+		//ALOGD("eeColorAPI pCompileShaders");
+		gEEColorAPIFunctions.pCompileShaders();
+	}
+#endif
+
     uint32_t shaderCount = 0;
     uint32_t keyMask = Key::BLEND_MASK | Key::OPACITY_MASK |
                        Key::PLANE_ALPHA_MASK | Key::TEXTURE_MASK;
